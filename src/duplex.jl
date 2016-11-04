@@ -10,17 +10,20 @@ type RNADuplex
    length::Int # shortest length
 end
 
-function Base.push!{NP <: NucleotidePair}( duplex::RNADuplex, pair::NP )
+function Base.push!( duplex::RNADuplex, pair::RNAPair )
    cur_energy = duplex.energy[end]
-   if isa( pair, RNAPair )
-      if length(duplex.path) >= 1 && isa( duplex.path[end], RNAPair )
-         # add stack energy
-         cur_energy += stack_energy( pair, duplex.path[end] )
-      else
-         # add bulge/loop motif from lookup table
-      end
+   if length(duplex.path) >= 1 && isa( duplex.path[end], RNAPair )
+      # add stack energy
+      cur_energy += stack_energy( pair, duplex.path[end] )
+   else
+      # add bulge/loop motif from lookup table   
    end
    push!(duplex.path, pair)
+end
+
+function Base.push!{NP <: Union{RNAMismatch,RNABulge}}( duplex::RNADuplex, pair::NP )
+   push!( duplex.energy, duplex.energy[end] ) # don't calculate energy yet
+   push!( duplex.path, pair )
 end
 
 
