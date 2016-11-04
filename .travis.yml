@@ -4,6 +4,8 @@ os:
   - osx
 julia:
   - 0.5
+install:
+  - julia -e 'Pkg.add("Bio")'
 notifications:
   email: false
 script:
