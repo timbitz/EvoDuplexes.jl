@@ -49,4 +49,4 @@ const TURNER_1998_STACK = fill( 0.0, (16,16) )
       TURNER_1998_STACK[index(UG_PAIR),index(GU_PAIR)] = +0.3
       TURNER_1998_STACK[index(UG_PAIR),index(UG_PAIR)] = -0.5
 
-
+stack_energy( x::RNAPair, y::RNAPair ) = TURNER_1998_STACK[ index(x), index(y) ]
