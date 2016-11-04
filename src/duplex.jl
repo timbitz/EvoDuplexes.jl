@@ -8,6 +8,8 @@ type RNADuplex
    path::Vector{NucleotidePair} # sequence and structure path
    energy::Vector{Float64} # gibbs free energy from nearest-neighbor
    length::Int # shortest length
+
+   RNADuplex() = new(NucleotidePair[], Float64[4.09], 0)
 end
 
 function Base.push!( duplex::RNADuplex, pair::RNAPair )
@@ -18,12 +20,18 @@ function Base.push!( duplex::RNADuplex, pair::RNAPair )
    else
       # add bulge/loop motif from lookup table   
    end
-   push!(duplex.path, pair)
+   push!( duplex.energy, cur_energy )
+   push!( duplex.path, pair )
 end
 
 function Base.push!{NP <: Union{RNAMismatch,RNABulge}}( duplex::RNADuplex, pair::NP )
    push!( duplex.energy, duplex.energy[end] ) # don't calculate energy yet
    push!( duplex.path, pair )
+end
+
+function Base.pop!{NP <: NucleotidePair}( duplex::RNADuplex )
+   pop!( duplex.path )
+   pop!( duplex.energy )
 end
 
 
