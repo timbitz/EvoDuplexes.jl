@@ -1,6 +1,5 @@
 
 using Base.Test
-#using RNATrie
 
 using Bio.Seq
 include("../src/pairs.jl")
