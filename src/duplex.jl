@@ -15,12 +15,14 @@ function Base.push!( duplex::RNADuplex, pair::RNAPair )
    cur_energy = duplex.energy[end]
    if length(duplex.path) >= 1 && isa( duplex.path[end], RNAPair )
       # add stack energy
-      cur_energy += stack_energy( pair, duplex.path[end] ) # TODO CHECK!
+      cur_energy += stack_energy( duplex.path[end], pair ) # TODO CHECK!
+      push!( duplex.path, pair )
    else
-      # add bulge/loop motif from lookup table   
+      # add bulge/loop motif from lookup table
+      push!( duplex.path, pair )
+      cur_energy += motif_energy( duplex, length(duplex.path) )
    end
    push!( duplex.energy, cur_energy )
-   push!( duplex.path, pair )
 end
 
 function Base.push!{NP <: Union{RNAMismatch,RNABulge}}( duplex::RNADuplex, pair::NP )
