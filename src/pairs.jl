@@ -72,4 +72,15 @@ function index(x::RNABulge)
    trailing_zeros(reinterpret(UInt8, x)) + 1
 end
 
+function flip{NP <: NucleotidePair}(x::NP)
+   left   = convert(UInt8, x) >> 4
+   retval = (convert(UInt8, x) & 0x0F) << 4
+   reinterpret( NP, retval | left )
+end
+
+function Base.split(x::NucleotidePair)
+   left  = trailing_zeros(convert(UInt8, x) >> 4) + 1
+   right = trailing_zeros(convert(UInt8, x) & 0x0F) + 1
+   (left, right)
+end
 

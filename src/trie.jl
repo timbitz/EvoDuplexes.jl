@@ -131,7 +131,7 @@ function traverse{A}( fwd::TrieNode{A}, rev::TrieNode{A},
       end
    end
    # recurse through bulges
-   if bulge_n < bulge_max && depth > 1
+   if bulge_n < bulge_max && depth > 1 
       for (l,r) in indexpairs(A, true) # gaps = true
          if l == 0 # gap
             if isa( rev.next[r], TrieNode{A} )

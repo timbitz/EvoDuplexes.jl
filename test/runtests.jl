@@ -49,6 +49,34 @@ const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMA
    end
    @test ind_sum == sum(collect(1:16))
 
+   @test split(AU_PAIR) == (1,4)
+   @test split(CG_PAIR) == (2,3)
+   @test split(GU_PAIR) == (3,4)
+
+   @test AU_PAIR == flip(UA_PAIR)
+   @test UA_PAIR == flip(AU_PAIR)
+   @test CG_PAIR == flip(GC_PAIR)
+   @test GC_PAIR == flip(CG_PAIR)
+   @test UG_PAIR == flip(GU_PAIR)
+   @test GU_PAIR == flip(UG_PAIR)
+
+   @test AA_MISMATCH == flip(AA_MISMATCH)
+   @test AG_MISMATCH == flip(GA_MISMATCH)
+   @test AC_MISMATCH == flip(CA_MISMATCH)
+   @test CC_MISMATCH == flip(CC_MISMATCH)
+   @test CU_MISMATCH == flip(UC_MISMATCH)
+   @test GG_MISMATCH == flip(GG_MISMATCH)
+   @test UU_MISMATCH == flip(UU_MISMATCH)
+
+   @test AB_BULGE == flip(BA_BULGE)
+   @test CB_BULGE == flip(BC_BULGE)
+   @test GB_BULGE == flip(BG_BULGE)
+   @test UB_BULGE == flip(BU_BULGE)
+   @test BA_BULGE == flip(AB_BULGE)
+   @test BC_BULGE == flip(CB_BULGE)
+   @test BG_BULGE == flip(GB_BULGE)
+   @test BU_BULGE == flip(UB_BULGE)
+
 end
 
 @testset "Energy Parameters" begin
@@ -58,7 +86,17 @@ end
       else
          @test TURNER_1998_STACK[index(i), index(j)] < 0.0
       end
+
+      @test length(TURNER_2004_INTERNAL_TWO[ index(i), index(j) ]) == 16
+      @test sum(TURNER_2004_INTERNAL_TWO[ index(i), index(j) ]) > 0.0
+      
+      for k in 1:4
+         @test length(TURNER_2004_INTERNAL_THREE[ index(i), index(j), k ]) == 16
+         @test sum(TURNER_2004_INTERNAL_THREE[ index(i), index(j), k ]) > 0.0
+      end
+
+      @test length(TURNER_2004_INTERNAL_FOUR[ index(i), index(j) ]) == 256
+      @test sum(TURNER_2004_INTERNAL_FOUR[ index(i), index(j) ]) > 0.0
    end
 end
-
 
