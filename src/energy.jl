@@ -1,9 +1,9 @@
-
+# GIBBS FREE ENERGY PARAMETERS AND CONSTANTS
 # DATA FROM:
 
 # Xia, T., SantaLucia, J., Jr., Burkard, M.E., Kierzek, R., Schroeder, S.J., Jiao, X., Cox, C. and Turner, D.H. (1998) Thermodynamic parameters for an expanded nearest-neighbor model for formation of RNA duplexes with Watson-Crick pairs. Biochemistry, 37, 14719-14735.
 #
-# Mathews, D.H., Disney, M.D., Childs, J.L., Schroeder, S.J., Zuker, M. and Turner, D.H. (1998) Incorporating chemical modification constraints into a dynamic programming algorithm for prediction of RNA secondary structure. Proc. Natl. Acad. Sci. USA, 101, 7287-7292.
+# Mathews, D.H., Disney, M.D., Childs, J.L., Schroeder, S.J., Zuker, M. and Turner, D.H. (2004) Incorporating chemical modification constraints into a dynamic programming algorithm for prediction of RNA secondary structure. Proc. Natl. Acad. Sci. USA, 101, 7287-7292.
 
 const pair_order = [AU_PAIR, CG_PAIR, GC_PAIR, UA_PAIR, GU_PAIR, UG_PAIR]
 
@@ -15,7 +15,11 @@ const TURNER_2004_BULGE_INITIATION = [3.8, 2.8, 3.2, 3.6, 4.0, 4.4, 4.6, 4.7, 4.
                                       5.0, 5.1, 5.2, 5.3, 5.4, 5.4, 5.5, 5.5, 5.6, 5.7, 
                                       5.7, 5.8, 5.8, 5.8, 5.9, 5.9, 6.0, 6.0, 6.0, 6.1]
 
-const TURNER_2004_INTERNAL_INITIATION = 
+const TURNER_2004_INTERNAL_AU_CLOSURE = 0.7
+const TURNER_2004_INTERNAL_ASYMMETRY  = 0.6
+const TURNER_2004_INTERNAL_INITIATION = [0.0, 0.0, 0.0, 1.1, 2.0, 2.0, 2.1, 2.3, 2.4, 2.5, 
+                                         2.6, 2.7, 2.8, 2.9, 2.9, 3.0, 3.1, 3.1, 3.2, 3.3, 
+                                         3.3, 3.4, 3.4, 3.5, 3.5, 3.5, 3.6, 3.6, 3.7, 3.7]
 
 const TURNER_1998_STACK = fill( 0.0, (16,16) )
 
