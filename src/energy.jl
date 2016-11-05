@@ -7,6 +7,16 @@
 
 const pair_order = [AU_PAIR, CG_PAIR, GC_PAIR, UA_PAIR, GU_PAIR, UG_PAIR]
 
+const RT = 0.616
+const TURNER_1998_INITIATION = 4.09
+const TURNER_2004_AU_PENALTY = 0.45
+const TURNER_2004_BULGE_EXCEPTION = -0.9
+const TURNER_2004_BULGE_INITIATION = [3.8, 2.8, 3.2, 3.6, 4.0, 4.4, 4.6, 4.7, 4.8, 4.9,
+                                      5.0, 5.1, 5.2, 5.3, 5.4, 5.4, 5.5, 5.5, 5.6, 5.7, 
+                                      5.7, 5.8, 5.8, 5.8, 5.9, 5.9, 6.0, 6.0, 6.0, 6.1]
+
+const TURNER_2004_INTERNAL_INITIATION = 
+
 const TURNER_1998_STACK = fill( 0.0, (16,16) )
 
       TURNER_1998_STACK[index(AU_PAIR),index(AU_PAIR)] = -0.9

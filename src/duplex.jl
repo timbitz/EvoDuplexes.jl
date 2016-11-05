@@ -58,15 +58,11 @@ function motif_energy( duplex::RNADuplex, curpair::Int )
 
    # assign proper energy function to motif
    if     bulge && !mismatch
-      # bulge_energy()
+      energy += bulge_energy( duplex, range )
    elseif mismatch && !bulge
-      # mismatch_energy() 1x1 or 2x2 or ...
+      energy += internal_energy_symmetric( duplex, range )
    else # mismatch && bulge
-      if length(range) == 4 # 1x2 Internal Loop
-         # mismatch_1x2
-      else
-         # complex_energy()
-      end
+      energy += internal_energy_asymmetric( duplex, range )
    end
 
    energy
@@ -76,12 +72,26 @@ function bulge_energy( duplex::RNADuplex, range::UnitRange )
    energy = 0.0
    energy += bulge_exception( duplex, range ) # bulge C exception
    if length(range) > 3 # multiple nt bulge
-      
+      energy += au_end_penalty( duplex, range )
+      energy += bulge_initiation( length(range) - 2 )      
    else # single nt bulge
+      energy += bulge_initiation(1)
       energy += stack_energy( duplex.path[range.start], duplex.path[range.stop] )
       energy += # states?
    end
+   energy
+end
 
+function internal_energy_symmetric( duplex::RNADuplex, range::UnitRange )
+   energy = 0.0
+   if     length(range) == 3
+      return internal_1x1_energy( duplex, range )
+   elseif length(range) == 4
+      return internal_2x2_energy( duplex, range )
+   else
+      energy += au_end_penalty( duplex, range )
+      energy += internal_initiation( (length(range) - 2)*2 )
+   end
    energy
 end
 
@@ -100,7 +110,7 @@ function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
    # flip?
 end
 
-function internal_complex_energy( duplex::RNADuplex, range::UnitRange )
+function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange )
    
 end
 
@@ -114,3 +124,18 @@ function bulge_exception( duplex::RNADuplex, range::UnitRange )
       return 0.0
    end
 end
+
+au_end_penalty( duplex::RNADuplex, range::UnitRange ) = au_end_penalty( duplex.path[range.start] ) + 
+                                                        au_end_penalty( duplex.path[range.stop] )
+
+function au_end_penalty( x::RNAPair )
+   if x == AU_PAIR || x == UA_PAIR ||
+      x == GU_PAIR || x == UG_PAIR
+      return TURNER_2004_AU_PENALTY
+   else
+      return 0.0
+   end
+end
+
+bulge_initiation( size::Int ) = TURNER_2004_BULGE_INITIATION[ size ]
+
