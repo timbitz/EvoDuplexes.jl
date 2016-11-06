@@ -4,6 +4,7 @@ using Base.Test
 using Bio.Seq
 include("../src/pairs.jl")
 include("../src/energy.jl")
+include("../src/duplex.jl")
 include("../src/trie.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
