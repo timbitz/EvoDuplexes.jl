@@ -6,6 +6,7 @@ using Bio.Seq
 
 include("pairs.jl")
 include("energy.jl")
+include("duplex.jl")
 include("trie.jl")
 
 end

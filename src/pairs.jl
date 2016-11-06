@@ -72,6 +72,8 @@ function index(x::RNABulge)
    trailing_zeros(reinterpret(UInt8, x)) + 1
 end
 
+isfiveprime(x::RNABulge) = reinterpret(UInt8, x) & 0x0F == 0 ? true : false
+
 function flip{NP <: NucleotidePair}(x::NP)
    left   = convert(UInt8, x) >> 4
    retval = (convert(UInt8, x) & 0x0F) << 4
@@ -84,3 +86,7 @@ function Base.split(x::NucleotidePair)
    (left, right)
 end
 
+function Base.split(x::RNABulge)
+   x_int = reinterpret(UInt8, x)
+   isfiveprime(x) ? trailing_zeros(x_int >> 4) : trailing_zeros(x_int)
+end

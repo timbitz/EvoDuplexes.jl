@@ -79,7 +79,7 @@ function bulge_energy( duplex::RNADuplex, range::UnitRange )
    else # single nt bulge
       energy += bulge_initiation(1)
       energy += stack_energy( duplex.path[range.start], duplex.path[range.stop] )
-      energy += # states?
+      #energy += # TODO states?
    end
    energy
 end
@@ -96,7 +96,29 @@ function internal_2x2_energy( duplex::RNADuplex, range::UnitRange )
 end
 
 function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
-   # flip?
+   mismatch_pos = isa( duplex.path[range.start+1], RNAMismatch ) ? 1 : 2
+   bulge_pos    = isa( duplex.path[range.start+1], RNABulge )    ? 1 : 2
+   bulge_five   = isfiveprime( duplex.path[range.start+bulge_pos] )
+   @assert mismatch_pos != bulge_pos
+   (x_idx, y_idx) = split( duplex.path[mismatch_pos] )
+    a_idx         = split( duplex.path[bulge_pos] )
+   if !bulge_five
+      if mismatch_pos < bulge_pos # properly oriented
+         return TURNER_2004_INTERNAL_THREE[ index(duplex.path[range.start]),
+                                            index(duplex.path[range.stop]), a_idx ][ x_idx, y_idx ]
+      else # switch mismatch and bulge
+         return TURNER_2004_INTERNAL_THREE[ index(duplex.path[range.start]),
+                                            index(duplex.path[range.stop]), y_idx ][ x_idx, a_idx ]
+      end
+   else
+      if mismatch_pos > bulge_pos # properly oriented
+         return TURNER_2004_INTERNAL_THREE[ index(flip(duplex.path[range.stop])),
+                                            index(flip(duplex.path[range.start])), a_idx ][ y_idx, x_idx ]
+      else # switch mismatch and bulge
+         return TURNER_2004_INTERNAL_THREE[ index(flip(duplex.path[range.stop])),
+                                            index(flip(duplex.path[range.start])), x_idx ][ y_idx, a_idx ]
+      end
+   end
 end
 
 function internal_energy_symmetric( duplex::RNADuplex, range::UnitRange )
@@ -121,7 +143,7 @@ function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange, mismat
       energy += internal_asymmetry_penalty( mismatch_n, bulge_n )
       energy += au_end_penalty( duplex, range, TURNER_2004_INTERNAL_AU_CLOSURE )
       if mismatch_n >= 2
-         # add mismatch stabilizers AG/GA GG/UU etc.
+         # TODO add mismatch stabilizers AG/GA GG/UU etc.
       end
    end
 
@@ -157,5 +179,6 @@ function au_end_penalty( x::RNAPair, param=TURNER_2004_AU_PENALTY )
    end
 end
 
-bulge_initiation( size::Int ) = TURNER_2004_BULGE_INITIATION[ size ]
+bulge_initiation( size::Int )   = TURNER_2004_BULGE_INITIATION[ size ]
 internal_initiation( size::Int) = TURNER_2004_INTERNAL_INITIATION[ size ]
+
