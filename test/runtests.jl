@@ -101,3 +101,97 @@ end
    end
 end
 
+@testset "Duplex Calculations" begin
+   
+   # Duplex examples from http://rna.urmc.rochester.edu/NNDB
+
+   #= Non-self complimentary duplex
+
+     5'GCACG 3'
+     3'CGUGC 5'  =#
+
+    duplex = RNADuplex()
+    push!( duplex, [GC_PAIR, CG_PAIR, AU_PAIR, CG_PAIR, GC_PAIR] )
+    @test length( duplex.path ) == 5
+    @test length( duplex.energy ) == length( duplex.path ) + 1
+    @test energy( duplex ) == -6.04
+
+   #= Self complimentary duplex
+
+     5'AGCGCU 3'
+     3'UCGCGA 5'  =#
+
+    duplex = RNADuplex()
+    push!( duplex, [AU_PAIR, GC_PAIR, CG_PAIR, GC_PAIR, CG_PAIR, UA_PAIR] )
+    @test length( duplex.path ) == 6
+    @test length( duplex.energy ) == length( duplex.path ) + 1
+    @test energy( duplex ) == -7.94
+
+   #= 2x2 internal loop
+
+         GA
+     5'CA  CG
+     3'GU  GC
+         AG  =#
+
+    duplex = RNADuplex()
+    push!( duplex, [CG_PAIR,AU_PAIR,GA_MISMATCH,AG_MISMATCH,CG_PAIR,GC_PAIR] )
+    @test length( duplex.path ) == 6
+    @test length( duplex.energy ) == length( duplex.path ) + 1
+    @test energy( duplex ) == -1.51
+    
+   #= 1x5 internal loop
+
+          G
+     5'CA     CG
+     3'GU     GC
+         GAAAG   =#
+
+     duplex = RNADuplex()
+     push!( duplex, [CG_PAIR, AU_PAIR, GG_MISMATCH, BA_BULGE, BA_BULGE, BA_BULGE,
+                     BG_BULGE, CG_PAIR, GC_PAIR] )
+     @test length( duplex.path ) == 9
+     @test length( duplex.energy ) == length( duplex.path ) + 1
+     @test energy( duplex ) == 4.69
+    
+   #= 2x3 internal loop with stabilizing mismatches
+
+         GA
+     5'CA   CG
+     3'GU   GC
+         GAG  =#
+
+     duplex = RNADuplex()
+     push!( duplex, [CG_PAIR, AU_PAIR, GG_MISMATCH, AA_MISMATCH, BG_BULGE, CG_PAIR, 
+                     GC_PAIR] )
+     @test length( duplex.path ) == 7
+     @test length( duplex.energy ) == length( duplex.path ) + 1
+     @test energy( duplex ) == 0.9
+
+   #= Single exception bulge with multiple states
+
+          C
+     5'GCC G
+     3'CGG C  =#
+
+     duplex = RNADuplex()
+     push!( duplex, [GC_PAIR, CG_PAIR, CG_PAIR, CB_BULGE, GC_PAIR] )
+     @test length( duplex.path ) == 5
+     @test length( duplex.energy ) == length( duplex.path ) + 1
+     @test energy( duplex ) == -2.7
+
+   #= Multiple nucleotide bulge
+
+         ACA
+     5'GA   G
+     3'CU   C  =#
+
+     duplex = RNADuplex()
+     push!( duplex, [GC_PAIR, AU_PAIR, AB_BULGE, CB_BULGE, AB_BULGE, GC_PAIR] )
+     @test length( duplex.path ) == 6
+     @test length( duplex.energy ) == length( duplex.path ) + 1
+     @test energy( duplex ) == 5.4
+
+  
+end
+

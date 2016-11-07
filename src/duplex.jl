@@ -13,7 +13,9 @@ end
 
 function Base.push!( duplex::RNADuplex, pair::RNAPair )
    cur_energy = duplex.energy[end]
-   if length(duplex.path) >= 1 && isa( duplex.path[end], RNAPair )
+   if length(duplex.path) == 0
+      push!( duplex.path, pair ) 
+   elseif length(duplex.path) >= 1 && isa( duplex.path[end], RNAPair )
       # add stack energy
       cur_energy += stack_energy( duplex.path[end], pair ) # TODO CHECK!
       push!( duplex.path, pair )
@@ -30,10 +32,18 @@ function Base.push!{NP <: Union{RNAMismatch,RNABulge}}( duplex::RNADuplex, pair:
    push!( duplex.path, pair )
 end
 
-function Base.pop!{NP <: NucleotidePair}( duplex::RNADuplex )
+function Base.push!( duplex::RNADuplex, path::Vector{NucleotidePair} )
+   for i in path
+      push!( duplex, i )
+   end
+end
+
+function Base.pop!( duplex::RNADuplex )
    pop!( duplex.path )
    pop!( duplex.energy )
 end
+
+energy( duplex::RNADuplex ) = signif( duplex.energy[end], 5 )
 
 # Figure out what kind of bulge/internal loop we have prior to
 # the closing RNAPair then score it appropriately
@@ -92,7 +102,8 @@ end
 
 function internal_2x2_energy( duplex::RNADuplex, range::UnitRange )
    TURNER_2004_INTERNAL_FOUR[ index(duplex.path[range.start]),
-                              index(duplex.path[range.stop]) ][index(range.start+1),index(range.stop-1)]
+                              index(duplex.path[range.stop]) ][index(duplex.path[range.start+1]),
+                                                               index(duplex.path[range.stop-1])]
 end
 
 function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
@@ -151,7 +162,7 @@ function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange, mismat
 end
 
 function internal_asymmetry_penalty( mismatch_n::Int, bulge_n::Int )
-   abs(mismatch_n - (mismatch_n + bulge_n)) * TURNER_2004_ASYMMETRY_PENALTY
+   abs(mismatch_n - (mismatch_n + bulge_n)) * TURNER_2004_INTERNAL_ASYMMETRY
 end
 
 function bulge_exception( duplex::RNADuplex, range::UnitRange )
