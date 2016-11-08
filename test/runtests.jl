@@ -1,7 +1,7 @@
 
 using Base.Test
-
 using Bio.Seq
+
 include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/duplex.jl")
@@ -101,6 +101,43 @@ end
    end
 end
 
+@testset "Duplex Energy Functions" begin
+
+   duplex = RNADuplex()
+
+   # Test simple 1x1 lookup
+   duplex.path = [AU_PAIR, AA_MISMATCH, AU_PAIR]
+   @test internal_1x1_energy( duplex, 1:3 ) == 1.9
+   duplex.path = [UG_PAIR, UU_MISMATCH, UG_PAIR]
+   @test internal_1x1_energy( duplex, 1:3 ) == 1.6
+   @test motif_energy( duplex, 3 )          == 1.6
+
+   # Test lookup with 1x2 table.
+   duplex.path = [AU_PAIR, AA_MISMATCH, BA_BULGE, AU_PAIR]
+   @test internal_1x2_energy( duplex, 1:4 ) == 3.7
+   # Reverse bulge/mismatch order
+   duplex.path = [AU_PAIR, BA_BULGE, AA_MISMATCH, AU_PAIR]
+   @test internal_1x2_energy( duplex, 1:4 ) == 3.7
+   # Invert bulge side
+   duplex.path = [UA_PAIR, AB_BULGE, AA_MISMATCH, UA_PAIR]
+   @test internal_1x2_energy( duplex, 1:4 ) == 3.7
+   # Invert and reverse
+   duplex.path = [UA_PAIR, AA_MISMATCH, AB_BULGE, UA_PAIR]
+   @test internal_1x2_energy( duplex, 1:4 ) == 3.7
+   # Test range
+   duplex.path = [UG_PAIR, UU_MISMATCH, BU_BULGE, UG_PAIR]
+   @test internal_1x2_energy( duplex, 1:4 ) == 3.0
+   @test motif_energy( duplex, 4 )          == 3.0
+
+   # Test lookup with 2x2 table.
+   duplex.path = [AU_PAIR, AA_MISMATCH, AA_MISMATCH, AU_PAIR]
+   @test internal_2x2_energy( duplex, 1:4 ) == 2.8
+   duplex.path = [UG_PAIR, UU_MISMATCH, UU_MISMATCH, UG_PAIR]
+   @test internal_2x2_energy( duplex, 1:4 ) == 3.1
+   @test motif_energy( duplex, 4 )          == 3.1
+
+end
+
 @testset "Duplex Calculations" begin
    
    # Duplex examples from http://rna.urmc.rochester.edu/NNDB
@@ -192,6 +229,5 @@ end
      @test length( duplex.energy ) == length( duplex.path ) + 1
      @test energy( duplex ) == 5.4
 
-  
 end
 

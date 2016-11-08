@@ -58,6 +58,12 @@ function Base.convert{NP <: NucleotidePair}(::Type{NP}, first::Bio.Seq.Nucleotid
    reinterpret(NP, enc)
 end
 
+function Base.convert{NP <: NucleotidePair}(::Type{NP}, first::UInt8, last::UInt8 )
+   enc  = first << 4
+   enc |= last
+   reinterpret(NP, enc)
+end
+
 # convert two adjacent 'one hot' nucleotide 4-bit codes 
 # into two adjacent 2-bit encoding 0b00 = A, 0b01 = C, 0b10 = G, 0b11 = U
 # for both left and right nucleotides, so 0b00010001 becomes 0b0000
@@ -88,5 +94,5 @@ end
 
 function Base.split(x::RNABulge)
    x_int = reinterpret(UInt8, x)
-   isfiveprime(x) ? trailing_zeros(x_int >> 4) : trailing_zeros(x_int)
+   isfiveprime(x) ? trailing_zeros(x_int >> 4) + 1 : trailing_zeros(x_int) + 1
 end

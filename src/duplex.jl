@@ -32,16 +32,59 @@ function Base.push!{NP <: Union{RNAMismatch,RNABulge}}( duplex::RNADuplex, pair:
    push!( duplex.path, pair )
 end
 
-function Base.push!( duplex::RNADuplex, path::Vector{NucleotidePair} )
+function Base.push!{NP <: NucleotidePair}( duplex::RNADuplex, path::Vector{NP} )
    for i in path
       push!( duplex, i )
    end
 end
 
 function Base.pop!( duplex::RNADuplex )
-   pop!( duplex.path )
-   pop!( duplex.energy )
+   if length(duplex.path) >= 1
+      pop!( duplex.path )
+      pop!( duplex.energy )
+   end
 end
+
+function Base.show( io::IO, duplex::RNADuplex )
+   print_index( io, idx ) = print(io, convert(RNANucleotide, UInt8(0x01 << (idx - 1))))
+   print(io, "  ")
+   for i in duplex.path
+      if isa( i, RNAMismatch ) || ( isa(i, RNABulge) && isfiveprime(i) ) 
+         char = split( i )
+         print_index( io, char )
+      else
+         print(io, " ")
+      end
+   end
+   print(io, "\n5'")
+   for i in duplex.path
+      if isa( i, RNAPair )
+         (char,_) = split(i)
+         print_index( io, char )
+      else
+         print(io, " ")
+      end
+   end
+   print(io, "\n3'")
+   for i in duplex.path
+      if isa( i, RNAPair )
+         (_,char) = split(i)
+         print_index( io, char )
+      else
+         print(io, " ")
+      end
+   end
+   print("  ΔG = " * energy(duplex) * "\n")
+   for i in duplex.path
+      if isa( i, RNAMismatch ) || ( isa(i, RNABulge) && !isfiveprime(i) )
+         char = split( i )
+         print_index( io, char )
+      else
+         print(io, " ")
+      end
+   end
+end
+
 
 energy( duplex::RNADuplex ) = signif( duplex.energy[end], 5 )
 
@@ -111,8 +154,8 @@ function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
    bulge_pos    = isa( duplex.path[range.start+1], RNABulge )    ? 1 : 2
    bulge_five   = isfiveprime( duplex.path[range.start+bulge_pos] )
    @assert mismatch_pos != bulge_pos
-   (x_idx, y_idx) = split( duplex.path[mismatch_pos] )
-    a_idx         = split( duplex.path[bulge_pos] )
+   (x_idx, y_idx) = split( duplex.path[range.start+mismatch_pos] )
+    a_idx         = split( duplex.path[range.start+bulge_pos] )
    if !bulge_five
       if mismatch_pos < bulge_pos # properly oriented
          return TURNER_2004_INTERNAL_THREE[ index(duplex.path[range.start]),
