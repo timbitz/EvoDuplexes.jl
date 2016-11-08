@@ -47,16 +47,16 @@ end
 
 function Base.show( io::IO, duplex::RNADuplex )
    print_index( io, idx ) = print(io, convert(RNANucleotide, UInt8(0x01 << (idx - 1))))
-   print(io, "  ")
+   print(io, "   ")
    for i in duplex.path
-      if isa( i, RNAMismatch ) || ( isa(i, RNABulge) && isfiveprime(i) ) 
-         char = split( i )
+      if !isa( i, RNAPair ) && !( isa(i, RNABulge) && !isfiveprime(i) ) 
+         char = isa( i, RNAMismatch ) ? split( i )[1] : split( i )
          print_index( io, char )
       else
          print(io, " ")
       end
    end
-   print(io, "\n5'")
+   print(io, "\n5' ")
    for i in duplex.path
       if isa( i, RNAPair )
          (char,_) = split(i)
@@ -65,7 +65,7 @@ function Base.show( io::IO, duplex::RNADuplex )
          print(io, " ")
       end
    end
-   print(io, "\n3'")
+   print(io, " 3'\n3' ")
    for i in duplex.path
       if isa( i, RNAPair )
          (_,char) = split(i)
@@ -74,10 +74,12 @@ function Base.show( io::IO, duplex::RNADuplex )
          print(io, " ")
       end
    end
-   print("  ΔG = " * energy(duplex) * "\n")
+   print(io, " 5'  ΔG = ")
+   print(io, energy(duplex))
+   print(io, "\n   ")
    for i in duplex.path
-      if isa( i, RNAMismatch ) || ( isa(i, RNABulge) && !isfiveprime(i) )
-         char = split( i )
+      if !isa( i, RNAPair ) && !( isa(i, RNABulge) && isfiveprime(i) )
+         char = isa( i, RNAMismatch ) ? split( i )[2] : split( i )
          print_index( io, char )
       else
          print(io, " ")

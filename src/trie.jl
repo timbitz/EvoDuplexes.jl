@@ -153,6 +153,7 @@ function traverse{A}( fwd::TrieNode{A}, rev::TrieNode{A}, duplex::RNADuplex,
                k = revoffset( j, len )
                if (k - i) + 1 in foldrange
                   println("$depth: $l + $r @ $i & $k @ $bulge_n @ $mismatch_n && energy=$( energy(duplex))")
+                  println(duplex)
                end
             end
          end
