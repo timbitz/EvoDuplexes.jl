@@ -14,10 +14,11 @@ end
 function Base.push!( duplex::RNADuplex, pair::RNAPair )
    cur_energy = duplex.energy[end]
    if length(duplex.path) == 0
-      push!( duplex.path, pair ) 
+      push!( duplex.path, pair )
+      cur_energy += au_end_penalty( duplex.path[1] )
    elseif length(duplex.path) >= 1 && isa( duplex.path[end], RNAPair )
       # add stack energy
-      cur_energy += stack_energy( duplex.path[end], pair ) # TODO CHECK!
+      cur_energy += stack_energy( duplex.path[end], pair )
       push!( duplex.path, pair )
    else
       # add bulge/loop motif from lookup table
@@ -88,7 +89,9 @@ function Base.show( io::IO, duplex::RNADuplex )
 end
 
 
-energy( duplex::RNADuplex ) = signif( duplex.energy[end], 5 )
+@inline function energy( duplex::RNADuplex )
+   signif( duplex.energy[end] + au_end_penalty( duplex.path[end] ), 5 )
+end
 
 # Figure out what kind of bulge/internal loop we have prior to
 # the closing RNAPair then score it appropriately
@@ -134,7 +137,7 @@ function bulge_energy( duplex::RNADuplex, range::UnitRange )
    else # single nt bulge
       energy += bulge_initiation(1)
       energy += stack_energy( duplex.path[range.start], duplex.path[range.stop] )
-      #energy += # TODO states?
+      energy += bulge_states( duplex, range.start+1 )
    end
    energy
 end
@@ -219,6 +222,25 @@ function bulge_exception( duplex::RNADuplex, range::UnitRange )
    else
       return 0.0
    end
+end
+
+function bulge_states( duplex::RNADuplex, pos::Int )
+   n_states = 1
+   isfive = isfiveprime( duplex.path[pos] ) ? 1 : 2
+   base   = split(duplex.path[pos])
+   i,j    = pos - 1, pos + 1
+   while i >= 1 && split(duplex.path[i])[isfive] == base &&
+                     isa(duplex.path[i], RNAPair)
+      n_states += 1
+      i -= 1
+   end
+   while j <= length(duplex.path) && split(duplex.path[j])[isfive] == base &&
+                                       isa(duplex.path[j], RNAPair)
+      n_states += 1
+      j += 1
+   end
+   println(n_states)
+   RT * log(n_states) * -1
 end
 
 function au_end_penalty( duplex::RNADuplex, range::UnitRange, param=TURNER_2004_AU_PENALTY )

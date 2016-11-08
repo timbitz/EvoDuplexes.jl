@@ -151,7 +151,7 @@ end
     push!( duplex, [GC_PAIR, CG_PAIR, AU_PAIR, CG_PAIR, GC_PAIR] )
     @test length( duplex.path ) == 5
     @test length( duplex.energy ) == length( duplex.path ) + 1
-    @test energy( duplex ) == -6.04
+    @test energy( duplex ) == -6.01
 
    #= Self complimentary duplex
 
@@ -215,7 +215,7 @@ end
      push!( duplex, [GC_PAIR, CG_PAIR, CG_PAIR, CB_BULGE, GC_PAIR] )
      @test length( duplex.path ) == 5
      @test length( duplex.energy ) == length( duplex.path ) + 1
-     @test energy( duplex ) == -2.7
+     @test energy( duplex ) == -2.7867
 
    #= Multiple nucleotide bulge
 
@@ -227,7 +227,7 @@ end
      push!( duplex, [GC_PAIR, AU_PAIR, AB_BULGE, CB_BULGE, AB_BULGE, GC_PAIR] )
      @test length( duplex.path ) == 6
      @test length( duplex.energy ) == length( duplex.path ) + 1
-     @test energy( duplex ) == 5.4
+     @test energy( duplex ) == 5.34
 
 end
 
