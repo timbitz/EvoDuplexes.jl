@@ -78,6 +78,31 @@ const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMA
    @test BG_BULGE == flip(GB_BULGE)
    @test BU_BULGE == flip(UB_BULGE)
 
+   @test isfiveprime( AB_BULGE ) == true
+   @test isfiveprime( CB_BULGE ) == true
+   @test isfiveprime( GB_BULGE ) == true
+   @test isfiveprime( UB_BULGE ) == true
+   @test isfiveprime( BA_BULGE ) == false
+   @test isfiveprime( BC_BULGE ) == false
+   @test isfiveprime( BG_BULGE ) == false
+   @test isfiveprime( BU_BULGE ) == false
+
+   @test split(AB_BULGE) == 1
+   @test split(CB_BULGE) == 2
+   @test split(GB_BULGE) == 3
+   @test split(UB_BULGE) == 4
+   @test split(BA_BULGE) == 1
+   @test split(BC_BULGE) == 2
+   @test split(BG_BULGE) == 3
+   @test split(BU_BULGE) == 4
+
+   path = [AU_PAIR, CG_PAIR, AB_BULGE]
+   @test five_three(path, 1:3) == (1,4)
+   @test five_three(path, 1:3, last=true) == (1,3)
+   path = [BC_BULGE, CG_PAIR, BA_BULGE]
+   @test five_three(path, 1:3) == (2,2)
+   @test five_three(path, 1:3, last=true) == (2,1)
+
 end
 
 @testset "Energy Parameters" begin
@@ -162,7 +187,7 @@ end
     push!( duplex, [AU_PAIR, GC_PAIR, CG_PAIR, GC_PAIR, CG_PAIR, UA_PAIR] )
     @test length( duplex.path ) == 6
     @test length( duplex.energy ) == length( duplex.path ) + 1
-    @test energy( duplex ) == -7.94
+    @test energy( duplex ) == -7.98
 
    #= 2x2 internal loop
 
@@ -203,7 +228,7 @@ end
                      GC_PAIR] )
      @test length( duplex.path ) == 7
      @test length( duplex.energy ) == length( duplex.path ) + 1
-     @test energy( duplex ) == 0.9
+     @test energy( duplex ) == 0.89
 
    #= Single exception bulge with multiple states
 

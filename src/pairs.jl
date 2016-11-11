@@ -96,3 +96,36 @@ function Base.split(x::RNABulge)
    x_int = reinterpret(UInt8, x)
    isfiveprime(x) ? trailing_zeros(x_int >> 4) + 1 : trailing_zeros(x_int) + 1
 end
+
+# this function returns the first, or last if flag is true
+# five prime or three prime indexes (1:4) in a path of NucleotidePairs
+function five_three{NP <: NucleotidePair}( path::Vector{NP}, range::UnitRange; 
+                                           last::Bool=false )
+   five  = 0
+   three = 0
+   for i in (last ? reverse(range) : range)
+      if isa( path[i], RNABulge )
+         if isfiveprime( path[i] )
+            five = split( path[i] )
+         else
+            three = split( path[i] )
+         end
+      else
+         x,y   = split( path[i] )
+         five  = five > 0 ? five : x
+         three = three > 0 ? three : y
+      end
+      if five > 0 && three > 0
+         break
+      end
+   end
+   five, three
+end
+
+function is_purine_pyrimidine(x::RNAPair)
+   if x == AU_PAIR || x == GC_PAIR || x == GU_PAIR
+      return true
+   else
+      return false
+   end
+end

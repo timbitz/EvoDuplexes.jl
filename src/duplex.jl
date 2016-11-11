@@ -90,7 +90,9 @@ end
 
 
 @inline function energy( duplex::RNADuplex )
-   signif( duplex.energy[end] + au_end_penalty( duplex.path[end] ), 5 )
+   signif( duplex.energy[end] + 
+           au_end_penalty( duplex.path[end] ) +
+           helix_symmetry( duplex ), 5 )
 end
 
 # Figure out what kind of bulge/internal loop we have prior to
@@ -202,7 +204,7 @@ function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange, mismat
       energy += internal_asymmetry_penalty( mismatch_n, bulge_n )
       energy += au_end_penalty( duplex, range, TURNER_2004_INTERNAL_AU_CLOSURE )
       if mismatch_n >= 2
-         # TODO add mismatch stabilizers AG/GA GG/UU etc.
+         energy += internal_energy_mismatch( duplex, range, mismatch_n, bulge_n )
       end
    end
 
@@ -211,6 +213,56 @@ end
 
 function internal_asymmetry_penalty( mismatch_n::Int, bulge_n::Int )
    abs(mismatch_n - (mismatch_n + bulge_n)) * TURNER_2004_INTERNAL_ASYMMETRY
+end
+
+function internal_energy_mismatch( duplex::RNADuplex, range::UnitRange, mismatch_n, bulge_n )
+   energy = 0.0
+   (i,j)  = five_three( duplex.path, range.start+1:range.stop-1 )
+   (h,k)  = five_three( duplex.path, range.start+1:range.stop-1, last=true )
+   if mismatch_n == 2 && bulge_n == 1 # 2x3 terminal mismatches
+      energy += internal_2x3_stabilizer( duplex.path[range.start], i, j )
+      energy += internal_2x3_stabilizer( flip(duplex.path[range.stop]), k, h )
+   else 
+      energy += internal_other_stabilizer( i, j )
+      energy += internal_other_stabilizer( k, h )
+   end
+
+   energy
+end
+
+function internal_2x3_stabilizer( pair::RNAPair, five::Int, three::Int )
+   if is_purine_pyrimidine( pair ) # 5' RY
+      if     five == 3 && three == 1 # 5'GA pair
+         return -1.2
+      end
+   else # 5'YR pair
+      if     five == 1 && three == 3 # 5'AG pair
+         return -0.5
+      elseif five == 3 && three == 1 # 5'GA pair
+         return -1.1
+      end
+   end
+   if     five == 3 && three == 3 # 5'GG pair
+      return -0.8
+   elseif five == 4 && three == 4 # 5'UU pair
+      return -0.7
+   end
+
+   0.0
+end
+
+function internal_other_stabilizer( five::Int, three::Int )
+   if     five == 1 && three == 3 # 5'AG pair
+      return -0.8
+   elseif five == 3 && three == 1 # 5'GA pair
+      return -1.0
+   elseif five == 3 && three == 3 # 5'GG pair
+      return -1.2
+   elseif five == 4 && three == 4 # 5'UU pair
+      return -0.7
+   end
+
+   0.0
 end
 
 function bulge_exception( duplex::RNADuplex, range::UnitRange )
@@ -239,7 +291,6 @@ function bulge_states( duplex::RNADuplex, pos::Int )
       n_states += 1
       j += 1
    end
-   println(n_states)
    RT * log(n_states) * -1
 end
 
@@ -255,6 +306,20 @@ function au_end_penalty( x::RNAPair, param=TURNER_2004_AU_PENALTY )
    else
       return 0.0
    end
+end
+
+function helix_symmetry( duplex::RNADuplex )
+   i = 1
+   j = length(duplex.path)
+   while i < j
+      if duplex.path[i] != flip(duplex.path[j])
+         return 0.0
+      end
+      i += 1
+      j -= 1
+   end
+
+   return TURNER_1998_HELICAL_SYMMETRY
 end
 
 bulge_initiation( size::Int )   = TURNER_2004_BULGE_INITIATION[ size ]
