@@ -283,12 +283,12 @@ end
    @test trie.root.offsets[2] == [2]
    @test isdefined( trie.root.offsets, 3 ) == false
    @test isdefined( trie.root.offsets, 4 ) == false
-   @test trie.root.next[1].offsets[2] == [1]
-   @test trie.root.next[1].next[2].offsets[3] == [1]
+   @test trie.root.next[1].offsets[2] == [2]
+   @test trie.root.next[1].next[2].offsets[3] == [3]
    for i in 1:4
       @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
    end
-   @test trie.root.next[2].next[3].offsets[4] == [2]
+   @test trie.root.next[2].next[3].offsets[4] == [4]
    for i in 1:4
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end
@@ -302,12 +302,12 @@ end
    @test trie.root.offsets[2] == [2]
    @test isdefined( trie.root.offsets, 3 ) == false
    @test isdefined( trie.root.offsets, 4 ) == false
-   @test trie.root.next[1].offsets[2] == [1]
-   @test trie.root.next[1].next[2].offsets[3] == [1]
+   @test trie.root.next[1].offsets[2] == [2]
+   @test trie.root.next[1].next[2].offsets[3] == [3]
    for i in 1:4
       @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
    end
-   @test trie.root.next[2].next[3].offsets[4] == [2]
+   @test trie.root.next[2].next[3].offsets[4] == [4]
    for i in 1:4
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end 
