@@ -90,9 +90,9 @@ end
 
 
 @inline function energy( duplex::RNADuplex )
-   signif( duplex.energy[end] + 
-           au_end_penalty( duplex.path[end] ) +
-           helix_symmetry( duplex ), 5 )
+   length(duplex.path) >= 1 ? signif( duplex.energy[end] + 
+                                      au_end_penalty( duplex.path[end] ) +
+                                      helix_symmetry( duplex ), 5 ) : 0.0
 end
 
 # Figure out what kind of bulge/internal loop we have prior to
@@ -281,13 +281,13 @@ function bulge_states( duplex::RNADuplex, pos::Int )
    isfive = isfiveprime( duplex.path[pos] ) ? 1 : 2
    base   = split(duplex.path[pos])
    i,j    = pos - 1, pos + 1
-   while i >= 1 && split(duplex.path[i])[isfive] == base &&
-                     isa(duplex.path[i], RNAPair)
+   while i >= 1 && isa(duplex.path[i], RNAPair ) &&
+                 split(duplex.path[i])[isfive] == base
       n_states += 1
       i -= 1
    end
-   while j <= length(duplex.path) && split(duplex.path[j])[isfive] == base &&
-                                       isa(duplex.path[j], RNAPair)
+   while j <= length(duplex.path) && isa(duplex.path[j], RNAPair) &&
+                                   split(duplex.path[j])[isfive] == base 
       n_states += 1
       j += 1
    end

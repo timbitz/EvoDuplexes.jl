@@ -61,6 +61,13 @@ const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMA
    @test UG_PAIR == flip(GU_PAIR)
    @test GU_PAIR == flip(UG_PAIR)
 
+   @test is_purine_pyrimidine( AU_PAIR ) == true
+   @test is_purine_pyrimidine( GC_PAIR ) == true
+   @test is_purine_pyrimidine( GU_PAIR ) == true
+   @test is_purine_pyrimidine( UA_PAIR ) == false
+   @test is_purine_pyrimidine( CG_PAIR ) == false
+   @test is_purine_pyrimidine( UG_PAIR ) == false
+
    @test AA_MISMATCH == flip(AA_MISMATCH)
    @test AG_MISMATCH == flip(GA_MISMATCH)
    @test AC_MISMATCH == flip(CA_MISMATCH)
@@ -161,6 +168,14 @@ end
    @test internal_2x2_energy( duplex, 1:4 ) == 3.1
    @test motif_energy( duplex, 4 )          == 3.1
 
+   # Test helix symmetry
+   duplex.path = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR] # no_symmetry
+   @test helix_symmetry( duplex ) == 0.0
+   duplex.path = [AU_PAIR, CG_PAIR, GC_PAIR, UA_PAIR] # even_symmetry
+   @test helix_symmetry( duplex ) == TURNER_1998_HELICAL_SYMMETRY
+   duplex.path = [AU_PAIR, CG_PAIR, GU_PAIR, GC_PAIR, UA_PAIR] # odd_symmetry
+   @test helix_symmetry( duplex ) == TURNER_1998_HELICAL_SYMMETRY
+
 end
 
 @testset "Duplex Calculations" begin
@@ -256,3 +271,49 @@ end
 
 end
 
+@testset "Offset Trie Building" begin
+   
+   A = Bio.Seq.DNAAlphabet{2}
+   trie = OffsetTrie{A}( 1:3 )
+   @test trie.range == 1:3
+   @test isa( trie.root, NullTrieNode ) == true
+   push!( trie, dna"ACGT" )
+   @test isa( trie.root, TrieNode{A} )  == true
+   @test trie.root.offsets[1] == [1]
+   @test trie.root.offsets[2] == [2]
+   @test isdefined( trie.root.offsets, 3 ) == false
+   @test isdefined( trie.root.offsets, 4 ) == false
+   @test trie.root.next[1].offsets[2] == [1]
+   @test trie.root.next[1].next[2].offsets[3] == [1]
+   for i in 1:4
+      @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
+   end
+   @test trie.root.next[2].next[3].offsets[4] == [2]
+   for i in 1:4
+      @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
+   end
+
+   trie = OffsetTrie{A}( 1:3 )
+   @test trie.range == 1:3
+   @test isa( trie.root, NullTrieNode ) == true
+   push!( trie, ReferenceSequence("ACGT") )
+   @test isa( trie.root, TrieNode{A} )  == true
+   @test trie.root.offsets[1] == [1]
+   @test trie.root.offsets[2] == [2]
+   @test isdefined( trie.root.offsets, 3 ) == false
+   @test isdefined( trie.root.offsets, 4 ) == false
+   @test trie.root.next[1].offsets[2] == [1]
+   @test trie.root.next[1].next[2].offsets[3] == [1]
+   for i in 1:4
+      @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
+   end
+   @test trie.root.next[2].next[3].offsets[4] == [2]
+   for i in 1:4
+      @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
+   end 
+end
+
+@testset "Duplex Trie Building and Traversal" begin
+
+
+end

@@ -36,7 +36,8 @@ function Base.push!{A}( trie::OffsetTrie{A}, seq::Bio.Seq.Sequence )
    end
 end
 
-function Base.push!{A}( node::TrieNode{A}, seq::Bio.Seq.Sequence, range::UnitRange, idx::Int, curdepth::Int=1 )
+function Base.push!{A}( node::TrieNode{A}, seq::Bio.Seq.Sequence, 
+                        range::UnitRange, idx::Int, curdepth::Int=1 )
    if curdepth > last(range) || isambiguous( seq[idx] )
       return
    end
@@ -136,19 +137,14 @@ function traverse{A}( fwd::TrieNode{A}, rev::TrieNode{A}, duplex::RNADuplex,
                       len::Int, foldrange::UnitRange, 
                       bulge_n::Int, bulge_max::Int,
                       mismatch_n::Int, mismatch_max::Int,
-                      from_bulge::Bool, bulge_left::Bool )
+                      from_bulge::Bool, bulge_left::Bool,
+                      energy_max::Float64=deprange.start/2 )
    
    # recurse through valid watson-crick pairs
    for (l,r) in index(A, pairs)
       if isa( fwd.next[l], TrieNode{A} ) && isa( rev.next[r], TrieNode{A} )
-          push!( duplex, convert(RNAPair, onehot(l), onehot(r)) ) 
-          duplex = traverse( fwd.next[l], rev.next[r], duplex,
-                             depth + 1, deprange, 
-                             len, foldrange,
-                             bulge_n, bulge_max,
-                             mismatch_n, mismatch_max,
-                             false, false )
-         if depth in deprange
+         push!( duplex, convert(RNAPair, onehot(l), onehot(r)) ) 
+         if depth in deprange && energy(duplex) < deprange.start*-1
             for i in fwd.offsets[l], j in rev.offsets[r]
                k = revoffset( j, len )
                if (k - i) + 1 in foldrange
@@ -157,10 +153,16 @@ function traverse{A}( fwd::TrieNode{A}, rev::TrieNode{A}, duplex::RNADuplex,
                end
             end
          end
+         duplex = traverse( fwd.next[l], rev.next[r], duplex,
+                            depth + 1, deprange,
+                            len, foldrange,
+                            bulge_n, bulge_max,
+                            mismatch_n, mismatch_max,
+                            false, false )
       end
    end
    # recurse through bulges
-   if bulge_n < bulge_max && depth > 1 
+   if bulge_n < bulge_max && depth > 1 && duplex.energy[end] < energy_max
       for (l,r) in index(A, gaps)
          if l == 0 # gap
             (from_bulge && !bulge_left) && continue # only bulge one way
@@ -188,7 +190,7 @@ function traverse{A}( fwd::TrieNode{A}, rev::TrieNode{A}, duplex::RNADuplex,
       end
    end
    # recurse through mismatches
-   if mismatch_n < mismatch_max && depth > 1 && !from_bulge
+   if mismatch_n < mismatch_max && depth > 1 && !from_bulge && duplex.energy[end] < energy_max
       for (l,r) in index(A, mismatches)
          if isa( fwd.next[l], TrieNode{A} ) && isa( rev.next[r], TrieNode{A} )
           push!( duplex, convert(RNAMismatch, onehot(l), onehot(r)) )
