@@ -1,11 +1,12 @@
 
 using Base.Test
 using Bio.Seq
+using Bio.Intervals
 
 include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/duplex.jl")
-include("../src/rnatrie.jl")
+include("../src/trie.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -271,13 +272,13 @@ end
 
 end
 
-@testset "Offset Trie Building" begin
+@testset "RNA Trie Building" begin
    
    A = Bio.Seq.DNAAlphabet{2}
-   trie = OffsetTrie{A}( 1:3 )
+   trie = RNATrie{A,String}( 1:3 )
    @test trie.range == 1:3
    @test isa( trie.root, NullTrieNode ) == true
-   push!( trie, dna"ACGT" )
+   push!( trie, dna"ACGT", "DNA" )
    @test isa( trie.root, TrieNode{A} )  == true
    @test trie.root.offsets[1] == [1]
    @test trie.root.offsets[2] == [2]
@@ -293,24 +294,23 @@ end
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end
 
-   trie = OffsetTrie{A}( 1:3 )
-   @test trie.range == 1:3
-   @test isa( trie.root, NullTrieNode ) == true
-   push!( trie, ReferenceSequence("ACGT") )
+   push!( trie, ReferenceSequence("ACGT"), "REF" )
    @test isa( trie.root, TrieNode{A} )  == true
-   @test trie.root.offsets[1] == [1]
-   @test trie.root.offsets[2] == [2]
+   @test trie.root.offsets[1] == [1,1]
+   @test trie.root.offsets[2] == [2,2]
    @test isdefined( trie.root.offsets, 3 ) == false
    @test isdefined( trie.root.offsets, 4 ) == false
-   @test trie.root.next[1].offsets[2] == [2]
-   @test trie.root.next[1].next[2].offsets[3] == [3]
+   @test trie.root.next[1].offsets[2] == [2,2]
+   @test trie.root.next[1].next[2].offsets[3] == [3,3]
    for i in 1:4
       @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
    end
-   @test trie.root.next[2].next[3].offsets[4] == [4]
+   @test trie.root.next[2].next[3].offsets[4] == [4,4]
    for i in 1:4
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end 
+   @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
+
 end
 
 @testset "Duplex Trie Building and Traversal" begin
