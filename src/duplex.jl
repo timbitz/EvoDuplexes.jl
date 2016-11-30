@@ -8,7 +8,7 @@ type RNADuplex
    energy::Vector{Float64} # gibbs free energy from nearest-neighbor
    length::Int # shortest length
 
-   RNADuplex() = new(NucleotidePair[], Float64[TURNER_1998_INITIATION], 0)
+   RNADuplex() = new(NucleotidePair[], Float64[0.0], 0)
 end
 
 function Base.push!( duplex::RNADuplex, pair::RNAPair )
@@ -90,14 +90,15 @@ end
 
 
 @inline function energy( duplex::RNADuplex )
-   length(duplex.path) >= 1 ? signif( duplex.energy[end] + 
+   length(duplex.path) >= 1 ? Float64(signif( duplex.energy[end] + 
                                       au_end_penalty( duplex.path[end] ) +
-                                      helix_symmetry( duplex ), 5 ) : 0.0
+                                      helix_symmetry( duplex ), 5 ) +
+                                      TURNER_1998_INITIATION) : zero(Float64)
 end
 
 # Figure out what kind of bulge/internal loop we have prior to
 # the closing RNAPair then score it appropriately
-function motif_energy( duplex::RNADuplex, closing_ind::Int )
+@inline function motif_energy( duplex::RNADuplex, closing_ind::Int )
 
    bulge_n    = 0
    mismatch_n = 0
@@ -130,7 +131,7 @@ function motif_energy( duplex::RNADuplex, closing_ind::Int )
    energy
 end
 
-function bulge_energy( duplex::RNADuplex, range::UnitRange )
+@inline function bulge_energy( duplex::RNADuplex, range::UnitRange )
    energy = 0.0
    energy += bulge_exception( duplex, range ) # bulge C exception
    if length(range) > 3 # multiple nt bulge
@@ -144,19 +145,19 @@ function bulge_energy( duplex::RNADuplex, range::UnitRange )
    energy
 end
 
-function internal_1x1_energy( duplex::RNADuplex, range::UnitRange )
+@inline function internal_1x1_energy( duplex::RNADuplex, range::UnitRange )
    (x,y) = split(duplex.path[range.start+1])
    TURNER_2004_INTERNAL_TWO[ index(duplex.path[range.start]),
                              index(duplex.path[range.stop]) ][x,y]
 end
 
-function internal_2x2_energy( duplex::RNADuplex, range::UnitRange )
+@inline function internal_2x2_energy( duplex::RNADuplex, range::UnitRange )
    TURNER_2004_INTERNAL_FOUR[ index(duplex.path[range.start]),
                               index(duplex.path[range.stop]) ][index(duplex.path[range.start+1]),
                                                                index(duplex.path[range.stop-1])]
 end
 
-function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
+@inline function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
    mismatch_pos = isa( duplex.path[range.start+1], RNAMismatch ) ? 1 : 2
    bulge_pos    = isa( duplex.path[range.start+1], RNABulge )    ? 1 : 2
    bulge_five   = isfiveprime( duplex.path[range.start+bulge_pos] )
@@ -182,7 +183,7 @@ function internal_1x2_energy( duplex::RNADuplex, range::UnitRange )
    end
 end
 
-function internal_energy_symmetric( duplex::RNADuplex, range::UnitRange )
+@inline function internal_energy_symmetric( duplex::RNADuplex, range::UnitRange )
    energy = 0.0
    if     length(range) == 3
       return internal_1x1_energy( duplex, range )
@@ -195,7 +196,7 @@ function internal_energy_symmetric( duplex::RNADuplex, range::UnitRange )
    energy
 end
 
-function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange, mismatch_n, bulge_n )
+@inline function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange, mismatch_n::Int, bulge_n::Int )
    energy = 0.0
    if mismatch_n == 1 && bulge_n == 1 # 1x2 lookup table
       energy += internal_1x2_energy( duplex, range )
@@ -211,11 +212,11 @@ function internal_energy_asymmetric( duplex::RNADuplex, range::UnitRange, mismat
    energy
 end
 
-function internal_asymmetry_penalty( mismatch_n::Int, bulge_n::Int )
+@inline function internal_asymmetry_penalty( mismatch_n::Int, bulge_n::Int )
    abs(mismatch_n - (mismatch_n + bulge_n)) * TURNER_2004_INTERNAL_ASYMMETRY
 end
 
-function internal_energy_mismatch( duplex::RNADuplex, range::UnitRange, mismatch_n, bulge_n )
+@inline function internal_energy_mismatch( duplex::RNADuplex, range::UnitRange, mismatch_n::Int, bulge_n::Int )
    energy = 0.0
    (i,j)  = five_three( duplex.path, range.start+1:range.stop-1 )
    (h,k)  = five_three( duplex.path, range.start+1:range.stop-1, last=true )
@@ -230,7 +231,7 @@ function internal_energy_mismatch( duplex::RNADuplex, range::UnitRange, mismatch
    energy
 end
 
-function internal_2x3_stabilizer( pair::RNAPair, five::Int, three::Int )
+@inline function internal_2x3_stabilizer( pair::RNAPair, five::Int, three::Int )
    if is_purine_pyrimidine( pair ) # 5' RY
       if     five == 3 && three == 1 # 5'GA pair
          return -1.2
@@ -251,7 +252,7 @@ function internal_2x3_stabilizer( pair::RNAPair, five::Int, three::Int )
    0.0
 end
 
-function internal_other_stabilizer( five::Int, three::Int )
+@inline function internal_other_stabilizer( five::Int, three::Int )
    if     five == 1 && three == 3 # 5'AG pair
       return -0.8
    elseif five == 3 && three == 1 # 5'GA pair
@@ -265,7 +266,7 @@ function internal_other_stabilizer( five::Int, three::Int )
    0.0
 end
 
-function bulge_exception( duplex::RNADuplex, range::UnitRange )
+@inline function bulge_exception( duplex::RNADuplex, range::UnitRange )
    if (duplex.path[range.start] == CG_PAIR && duplex.path[range.start+1] == CB_BULGE) ||
       (duplex.path[range.start] == GC_PAIR && duplex.path[range.start+1] == BC_BULGE) ||
       (duplex.path[range.stop]  == CG_PAIR && duplex.path[range.stop-1]  == CB_BULGE) ||
@@ -276,7 +277,7 @@ function bulge_exception( duplex::RNADuplex, range::UnitRange )
    end
 end
 
-function bulge_states( duplex::RNADuplex, pos::Int )
+@inline function bulge_states( duplex::RNADuplex, pos::Int )
    n_states = 1
    isfive = isfiveprime( duplex.path[pos] ) ? 1 : 2
    base   = split(duplex.path[pos])
@@ -294,19 +295,21 @@ function bulge_states( duplex::RNADuplex, pos::Int )
    RT * log(n_states) * -1
 end
 
-function au_end_penalty( duplex::RNADuplex, range::UnitRange, param=TURNER_2004_AU_PENALTY )
+@inline function au_end_penalty( duplex::RNADuplex, range::UnitRange, param=TURNER_2004_AU_PENALTY )
    au_end_penalty( duplex.path[range.start], param ) + 
    au_end_penalty( duplex.path[range.stop],  param )
 end
 
-function au_end_penalty( x::RNAPair, param=TURNER_2004_AU_PENALTY )
+@inline function au_end_penalty( x::RNAPair, param=TURNER_2004_AU_PENALTY )
    if x == AU_PAIR || x == UA_PAIR ||
       x == GU_PAIR || x == UG_PAIR
-      return param
+      return convert(Float64, param)
    else
       return 0.0
    end
 end
+
+@inline au_end_penalty( x::NucleotidePair ) = 0.0
 
 function helix_symmetry( duplex::RNADuplex )
    i = 1
