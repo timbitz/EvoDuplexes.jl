@@ -92,8 +92,8 @@ end
 @inline function energy( duplex::RNADuplex )
    length(duplex.path) >= 1 ? Float64(signif( duplex.energy[end] + 
                                       au_end_penalty( duplex.path[end] ) +
-                                      helix_symmetry( duplex ), 5 ) +
-                                      TURNER_1998_INITIATION) : zero(Float64)
+                                      helix_symmetry( duplex ) + 
+                                      TURNER_1998_INITIATION, 5 )) : zero(Float64)
 end
 
 # Figure out what kind of bulge/internal loop we have prior to
