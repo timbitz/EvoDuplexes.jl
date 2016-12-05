@@ -1,5 +1,6 @@
 
-typealias IntervalCollection Bio.Intervals.IntervalCollection
+import Bio.Intervals.IntervalCollection
+
 typealias DuplexInterval IntervalCollection{IntervalCollection{RNADuplex}}
 
 
