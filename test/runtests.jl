@@ -3,9 +3,12 @@ using Base.Test
 using Bio.Seq
 using Bio.Intervals
 
+import Bio.Intervals.IntervalCollection
+
 include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/duplex.jl")
+include("../src/intervals.jl")
 include("../src/trie.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
@@ -269,6 +272,10 @@ end
      @test length( duplex.path ) == 6
      @test length( duplex.energy ) == length( duplex.path ) + 1
      @test energy( duplex ) == 5.34
+
+end
+
+@testset "Duplex Intervals" begin
 
 end
 
