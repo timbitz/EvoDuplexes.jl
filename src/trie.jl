@@ -159,7 +159,7 @@ function traverse{A}( trie::DuplexTrie{A}, foldrange::UnitRange;
             #      k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
             #      if (k - i) + 1 in foldrange
                      #println("$depth: $l + $r @ $i & $k @ $bulge_n @ $mismatch_n && energy=$( energy(duplex))")
-                     #println(duplex)
+                     println(duplex)
             #      end
             #   end
             end

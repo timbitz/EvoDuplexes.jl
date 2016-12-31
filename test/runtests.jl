@@ -3,7 +3,7 @@ using Base.Test
 using Bio.Seq
 using Bio.Intervals
 
-import Bio.Intervals.IntervalCollection
+importall Bio.Intervals
 
 include("../src/pairs.jl")
 include("../src/energy.jl")
@@ -184,7 +184,7 @@ end
 
 @testset "Duplex Calculations" begin
    
-   # Duplex examples from http://rna.urmc.rochester.edu/NNDB
+   # Duplex unit-test examples from http://rna.urmc.rochester.edu/NNDB
 
    #= Non-self complimentary duplex
 
@@ -277,6 +277,80 @@ end
 
 @testset "Duplex Intervals" begin
 
+   # Test pushing, overwriting, and ordering
+   dup = RNADuplex()
+   push!(dup, [CG_PAIR,AU_PAIR,AB_BULGE,GC_PAIR])
+   c = DuplexCollection{String}()
+   i = DuplexInterval(Interval("c",1,6,'+',"genea"), 
+                      Interval("c",50,55,'+',"genea"), dup)
+   push!( c, i )
+   @test length(c) == 1
+   @test length(first(c).metadata) == 1
+
+   dup2 = deepcopy( dup )
+   push!( dup2, CG_PAIR )
+   @test energy(dup2) < energy(dup)
+   i2 = DuplexInterval(Interval("c",2,7,'+',"genea"), 
+                       Interval("c",20,25,'+',"genea"), dup2)
+   push!( c, i2 )
+   @test length(c) == 1
+   @test length(first(c).metadata) == 2
+
+   i3 = DuplexInterval(Interval("c",6,7,'+',"genea"), 
+                       Interval("c",50,54,'+',"genea"), dup2)
+   push!( c, i3 )
+   @test length(c) == 1
+   @test length(first(c).metadata) == 2
+
+   @test isordered(c)
+
+   # Test addition-of-larger overwriting duplex
+   c = DuplexCollection{String}()
+   dup = RNADuplex()
+   push!(dup, [CG_PAIR,GC_PAIR,CG_PAIR])
+   i = DuplexInterval(Interval("c",1,5,'+',"genea"),
+                      Interval("c",100,105,'+',"genea"), dup)
+   dup2 = deepcopy(dup)
+   push!(dup2, [GC_PAIR,CG_PAIR])
+   @test energy(dup2) < energy(dup)
+   i2 = DuplexInterval(Interval("c",6,10,'+',"genea"),
+                       Interval("c",106,110,'+',"genea"), dup2)
+   push!( c, i  )
+   push!( c, i2 )
+   @test length(c) == 2
+   @test length(first(c).metadata) == 1
+
+   worse = RNADuplex()
+   push!(worse, [GU_PAIR,AB_BULGE,GB_BULGE,UA_PAIR,UG_PAIR,CB_BULGE,UA_PAIR])
+   @test energy(worse) > energy(dup)
+   i3 = DuplexInterval(Interval("c",1,10,'+',"genea"),
+                       Interval("c",100,110,'+',"genea"), worse)
+
+   push!( c, i3 ) # less favorable energy should not get pushed.
+   @test length(c) == 2
+   @test length(first(c).metadata) == 1
+   @test first(c).first == 1 && first(c).last == 5
+
+   better = RNADuplex()
+   push!(better, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,CG_PAIR])
+   @test energy(better) < energy(dup2)
+   i3 = DuplexInterval(Interval("c",1,10,'+',"genea"),
+                       Interval("c",100,110,'+',"genea"), better)
+   push!( c, i3 ) # better energy should overwrite overlapping
+   @test length(c) == 1
+   @test first(c).first == 1 && first(c).last == 10
+   @test length(first(c).metadata) == 1
+
+   # Test addition of larger overwriting duplex, and subsequent deletion because of smaller higher energy duplex
+   c = DuplexCollection{String}()
+   push!( c, i  )
+   push!( c, i2 )
+   middle = RNADuplex()
+   push!(middle, [CG_PAIR,GC_PAIR,CG_PAIR, GC_PAIR])
+   @test energy(dup2) < energy(middle) < energy(dup)
+   i3 = DuplexInterval(Interval("c",1,10,'+',"genea"),
+                       Interval("c",100,110,'+',"genea"), middle)
+   push!( c, i3 )
 end
 
 @testset "RNA Trie Building" begin
