@@ -296,7 +296,7 @@ end
    @test length(c) == 1
    @test length(first(c).metadata) == 2
 
-   i3 = DuplexInterval(Interval("c",4,7,'+',"genea"), 
+   i3 = DuplexInterval(Interval("c",2,7,'+',"genea"), 
                        Interval("c",50,54,'+',"genea"), dup2)
    push!( c, i3 )
    @test length(c) == 1
