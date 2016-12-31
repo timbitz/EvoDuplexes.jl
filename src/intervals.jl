@@ -48,7 +48,7 @@ function Base.delete!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
          end
          if length(dupvector) == 0
             if isnull(for_deletion)
-               for_deletion = Nullable(Vector{Tuple{AbstractString,Int64,Int64}})()
+               for_deletion = Nullable(Vector{Tuple{AbstractString,Int64,Int64}}())
             end
             push!( for_deletion.value, (i.seqname, i.first, i.last) )
          end
