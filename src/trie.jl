@@ -155,13 +155,14 @@ function traverse{A}( trie::DuplexTrie{A}, foldrange::UnitRange;
          if isa( fwd.next[l], TrieNode{A,K} ) && isa( rev.next[r], TrieNode{A,K} )
             push!( duplex, convert(RNAPair, onehot(l), onehot(r)) ) 
             if depth in deprange && energy(duplex) < trie.range.start*-1
-            #   for (ix,i) in enumerate(fwd.offsets[l]), (jx,j) in enumerate(rev.offsets[r])
-            #      k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
-            #      if (k - i) + 1 in foldrange
+               for (ix,i) in enumerate(fwd.offsets[l]), (jx,j) in enumerate(rev.offsets[r])
+                  k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
+                  if (k - i) + 1 in foldrange
                      #println("$depth: $l + $r @ $i & $k @ $bulge_n @ $mismatch_n && energy=$( energy(duplex))")
                      #println(duplex)
-            #      end
-            #   end
+                     
+                  end
+               end
             end
             traverse( fwd.next[l], rev.next[r], depth + 1,
                        bulge_n, mismatch_n,
