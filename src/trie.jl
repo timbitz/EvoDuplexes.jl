@@ -65,7 +65,7 @@ end
 
 
 revoffset( x::Int, seq::BioSequence ) = revoffset( x, length(seq) )
-revoffset( x::Int, len::Int ) = len - x + 1
+revoffset( x, len ) = len - x + 1
 
 const DNAPAIRS = [(DNA_A, DNA_T),   (DNA_T, DNA_A),
                   (DNA_G, DNA_C),   (DNA_C, DNA_G),
@@ -135,8 +135,8 @@ end
 
 
 
-function traverse{A}( trie::DuplexTrie{A}, foldrange::UnitRange; 
-                      bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int) )
+function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange; 
+                        bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int) )
 
    const pairs_idx      = index(A, pairs)
    const bulges_idx     = index(A, gaps)
@@ -146,8 +146,10 @@ function traverse{A}( trie::DuplexTrie{A}, foldrange::UnitRange;
    const deprange       = trie.range
    const energy_max     = 0.01
 
-   @inline function traverse{A,K}( fwd::TrieNode{A,K}, rev::TrieNode{A,K}, depth::Int64, 
-                                   bulge_n::Int64, mismatch_n::Int64,
+   const intervals      = DuplexCollection{K}()
+
+   @inline function traverse{A,K}( fwd::TrieNode{A,K}, rev::TrieNode{A,K},
+                                   depth::Int64, bulge_n::Int64, mismatch_n::Int64,
                                    from_bulge::Bool, bulge_left::Bool )
    
       # recurse through valid watson-crick pairs
@@ -160,7 +162,11 @@ function traverse{A}( trie::DuplexTrie{A}, foldrange::UnitRange;
                   if (k - i) + 1 in foldrange
                      #println("$depth: $l + $r @ $i & $k @ $bulge_n @ $mismatch_n && energy=$( energy(duplex))")
                      #println(duplex)
-                     
+                     const fwd_name = trie.names[ fwd.metadata[l][ix] ]
+                     const rev_name = trie.names[ rev.metadata[r][jx] ]
+                     push!( intervals, DuplexInterval( Interval(fwd_name, i-depth, i, '?', fwd.metadata[l][ix]), 
+                                                       Interval(rev_name, k, k+depth, '?', rev.metadata[r][jx]),
+                                                       deepcopy(duplex) ) )
                   end
                end
             end
@@ -207,8 +213,10 @@ function traverse{A}( trie::DuplexTrie{A}, foldrange::UnitRange;
       return
    end
 
-   traverse( trie.fwd.root, trie.rev.root, one(Int),
-             zero(Int), zero(Int),
+   traverse( trie.fwd.root, trie.rev.root, 
+             one(Int), zero(Int), zero(Int),
              false, false )
+
+   intervals
 end
 
