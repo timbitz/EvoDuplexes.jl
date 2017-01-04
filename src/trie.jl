@@ -164,8 +164,8 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
                      #println(duplex)
                      const fwd_name = trie.names[ fwd.metadata[l][ix] ]
                      const rev_name = trie.names[ rev.metadata[r][jx] ]
-                     push!( intervals, DuplexInterval( Interval(fwd_name, i-depth, i, '?', fwd.metadata[l][ix]), 
-                                                       Interval(rev_name, k, k+depth, '?', rev.metadata[r][jx]),
+                     push!( intervals, DuplexInterval( Interval(fwd_name, i-depth+1, i, '?', fwd.metadata[l][ix]), 
+                                                       Interval(rev_name, k,   k+depth, '?', rev.metadata[r][jx]),
                                                        deepcopy(duplex) ) )
                   end
                end

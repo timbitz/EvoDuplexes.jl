@@ -351,6 +351,10 @@ end
    i3 = DuplexInterval(Interval("c",1,10,'+',"genea"),
                        Interval("c",100,110,'+',"genea"), middle)
    push!( c, i3 )
+   @test length(c) == 1
+   @test first(c).first == 6 && first(c).last == 10
+   @test length(first(c).metadata) == 1
+
 end
 
 @testset "RNA Trie Building" begin
@@ -396,5 +400,16 @@ end
 
 @testset "Duplex Trie Building and Traversal" begin
 
+   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
+   trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
+   @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
+   val = traverse( trie, 8:100, bulge_max=1 )
+   @test length(val) == 1
+   firstval = first(val)
+   @test length(firstval.metadata) == 1
+   duplexint = firstval.metadata[1]
+   @test firstval.first == 1 && firstval.last == 13
+   @test duplexint.first.first == 1 && duplexint.first.last == 13
+   @test duplexint.last.first == 24 && duplexint.last.last  == 37
 
 end
