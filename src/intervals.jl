@@ -65,7 +65,7 @@ function Base.delete!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
    end
 end
 
-function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
+function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.8)
    hasintersect = false
    added_duplex = false
    remove_added = false
@@ -75,18 +75,19 @@ function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
 
    if haskey( col.trees, int.first.seqname )
       for i in intersect(col, int.first)
+         isoverlapping( int.first, i, rate ) || continue
          const dupvector = i.metadata
          hasintersect = true
          j = 1
          while j <= length(dupvector)
-            if added_duplex && isoverlapping( int, dupvector[j], 0.75 )
+            if added_duplex && isoverlapping( int, dupvector[j], rate )
                if energy(int.duplex) < energy(dupvector[j].duplex)
                   splice!( dupvector, j )
                   j -= 1
                else
                   remove_added = true
                end
-            elseif isoverlapping( int, dupvector[j], 0.75 )
+            elseif isoverlapping( int, dupvector[j], rate )
                if energy(int.duplex) < energy(dupvector[j].duplex)
                   i.last  = i.last  > int.first.last  ? i.last  : int.first.last
                   if int.first.first < i.first

@@ -48,7 +48,7 @@ end
 
 function Base.show( io::IO, duplex::RNADuplex )
    print_index( io, idx ) = print(io, convert(RNANucleotide, UInt8(0x01 << (idx - 1))))
-   print(io, "   ")
+   print(io, "\n   ")
    for i in duplex.path
       if !isa( i, RNAPair ) && !( isa(i, RNABulge) && !isfiveprime(i) ) 
          char = isa( i, RNAMismatch ) ? split( i )[1] : split( i )
