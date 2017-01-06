@@ -9,26 +9,37 @@ end
 # a DuplexCollection contains DuplexIntervals indexed by first interval
 typealias DuplexCollection{T} IntervalCollection{Vector{DuplexInterval{T}}}
 
+fixed_interval{I <: Integer}( val::I, size::Int ) = (v = div(val, size)*size; return (v+1, v+size))
+
 function isoverlapping{S,T}(x::Interval{S}, y::Interval{T}, identity::Float64)
    if isoverlapping( x, y )
       overlap  = min( x.last, y.last ) - max( x.first, y.first ) + 1
       smallest = min( x.last - x.first, y.last - y.first ) + 1
-      if overlap / smallest > identity
+      if overlap / smallest >= identity
          return true
       end
    end
    return false
 end
 
-isoverlapping(x::DuplexInterval, y::DuplexInterval) = isoverlapping(x.first, y.first) && isoverlapping(x.last, y.last) ? true : false
-isoverlapping(x::DuplexInterval, y::DuplexInterval, ident::Float64) = isoverlapping(x.first, y.first, ident) && isoverlapping(x.last, y.last, ident) ? true : false
-precedes(x::DuplexInterval, y::DuplexInterval) = isoverlapping(x.first, y.first) ? Bio.Intervals.precedes(x.last, y.last) : Bio.Intervals.precedes(x.first, y.first)
+isoverlapping(x::DuplexInterval, y::DuplexInterval) = isoverlapping(x.first, y.first) && 
+                                                      isoverlapping(x.last, y.last) ? true : false
+isoverlapping(x::DuplexInterval, y::DuplexInterval, ident::Float64) = isoverlapping(x.first, y.first, ident) && 
+                                                                      isoverlapping(x.last, y.last, ident) ? true : false
 
+
+Base.isless(x::DuplexInterval, y::DuplexInterval) = (x.first.first == y.first.first && x.first.last == y.first.last) ? 
+                                                    Bio.Intervals.isless(x.last, y.last) : Bio.Intervals.isless(x.first, y.first)
+
+Base.:<(x::DuplexInterval, y::DuplexInterval) = isless( x, y )
+
+# return boolean of whether the duplex collection is
+# properly ordered or not.
 function isordered{T}( col::DuplexCollection{T} )
    for i in col
       const dupvector = i.metadata
       for j in 2:length(dupvector)
-         if !precedes( dupvector[j-1], dupvector[j] )
+         if !isless( dupvector[j-1], dupvector[j] )
             return false
          end
       end
@@ -65,17 +76,15 @@ function Base.delete!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
    end
 end
 
-function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.8)
+function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.99, size::Int=25)
    hasintersect = false
    added_duplex = false
    remove_added = false
 
    for_deletion = Nullable{Vector{Tuple{AbstractString,Int64,Int64}}}()
-   reset_first  = Nullable{Tuple{Interval,Int64}}()
 
    if haskey( col.trees, int.first.seqname )
       for i in intersect(col, int.first)
-         isoverlapping( int.first, i, rate ) || continue
          const dupvector = i.metadata
          hasintersect = true
          j = 1
@@ -89,21 +98,14 @@ function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::F
                end
             elseif isoverlapping( int, dupvector[j], rate )
                if energy(int.duplex) < energy(dupvector[j].duplex)
-                  i.last  = i.last  > int.first.last  ? i.last  : int.first.last
-                  if int.first.first < i.first
-                     reset_first = Nullable((i, int.first.first))
-                  end
-                  dupvector[j] = int
+                  splice!( dupvector, j )
+                  push!( col, int, rate=rate, size=size )
                   added_duplex = true
                   break
                else
                   return
                end
-            elseif precedes( int, dupvector[j] )
-               i.last  = i.last  > int.first.last  ? i.last  : int.first.last
-               if int.first.first < i.first
-                  reset_first = Nullable((i, int.first.first))
-               end
+            elseif isless( int, dupvector[j] )
                insert!( dupvector, j, int )
                added_duplex = true
                break
@@ -111,10 +113,6 @@ function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::F
             j += 1
          end
          if !added_duplex
-            i.last  = i.last  > int.first.last  ? i.last  : int.first.last
-            if int.first.first < i.first
-               reset_first = Nullable((i, int.first.first))
-            end
             push!( dupvector, int )
             added_duplex = true
          end
@@ -141,20 +139,11 @@ function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::F
       end
    end
 
-   if !isnull(reset_first) && 
-      length(reset_first.value[1].metadata) > 0 &&
-      !remove_added
-      inter,first = reset_first.value
-      IntervalTrees.deletefirst!( col.trees[inter.seqname], inter.first, inter.last )
-      col.length -= 1
-      inter.first = first
-      push!( col, inter )
-   end
-
    # push new interval and duplex
    if !hasintersect
-      ival = Interval(int.first.seqname, int.first.first, int.first.last, int.first.strand, [ int ])
-      push!(col, ival)
+      bounds = fixed_interval( int.first.first, size )
+      ival = Interval(int.first.seqname, bounds[1], bounds[2], int.first.strand, [ int ])
+      push!( col, ival )
    end
 
    return
