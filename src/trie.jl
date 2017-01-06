@@ -177,8 +177,8 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
                   end
                end
             end
-            traverse( fwd.next[l], rev.next[r], depth + 1,
-                       bulge_n, mismatch_n,
+            traverse( fwd.next[l], rev.next[r],
+                       depth + 1, bulge_n, mismatch_n,
                        false, false )
          end
       end
@@ -189,16 +189,16 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
                (from_bulge && !bulge_left) && continue # only bulge one way
                if isa( rev.next[r], TrieNode{A,K} )
                   push!( duplex, convert(RNABulge, zero(UInt8), onehot(r)) )
-                  traverse( fwd, rev.next[r], depth,
-                             bulge_n + 1, mismatch_n,
+                  traverse( fwd, rev.next[r],
+                             depth, bulge_n + 1, mismatch_n,
                              true, true )
                end
             elseif r == 0
                (from_bulge && bulge_left) && continue 
                if isa( fwd.next[l], TrieNode{A,K} )
                   push!( duplex, convert(RNABulge, onehot(l), zero(UInt8)) )
-                  traverse( fwd.next[l], rev, depth,
-                             bulge_n + 1, mismatch_n,
+                  traverse( fwd.next[l], rev,
+                             depth, bulge_n + 1, mismatch_n,
                              true, false )
                end
             end
@@ -209,8 +209,8 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
          for (l,r) in mismatches_idx
             if isa( fwd.next[l], TrieNode{A,K} ) && isa( rev.next[r], TrieNode{A,K} )
              push!( duplex, convert(RNAMismatch, onehot(l), onehot(r)) )
-             traverse( fwd.next[l], rev.next[r], depth + 1,
-                        bulge_n, mismatch_n + 1,
+             traverse( fwd.next[l], rev.next[r],
+                        depth + 1, bulge_n, mismatch_n + 1,
                         from_bulge, bulge_left )
             end
          end
