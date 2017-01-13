@@ -105,10 +105,9 @@ function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::F
                else
                   return
                end
-            elseif isless( int, dupvector[j] )
+            elseif !added_duplex && isless( int, dupvector[j] )
                insert!( dupvector, j, int )
                added_duplex = true
-               break
             end
             j += 1
          end
