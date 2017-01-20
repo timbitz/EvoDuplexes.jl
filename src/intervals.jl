@@ -76,7 +76,7 @@ function Base.delete!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
    end
 end
 
-function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.99, size::Int=25)
+function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.75, size::Int=25)
    hasintersect = false
    added_duplex = false
    remove_added = false

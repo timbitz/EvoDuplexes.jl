@@ -190,7 +190,7 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
                if isa( rev.next[r], TrieNode{A,K} )
                   push!( duplex, convert(RNABulge, zero(UInt8), onehot(r)) )
                   traverse( fwd, rev.next[r],
-                             depth, bulge_n + 1, mismatch_n,
+                             depth + 1, bulge_n + 1, mismatch_n,
                              true, true )
                end
             elseif r == 0
@@ -198,7 +198,7 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
                if isa( fwd.next[l], TrieNode{A,K} )
                   push!( duplex, convert(RNABulge, onehot(l), zero(UInt8)) )
                   traverse( fwd.next[l], rev,
-                             depth, bulge_n + 1, mismatch_n,
+                             depth + 1, bulge_n + 1, mismatch_n,
                              true, false )
                end
             end
