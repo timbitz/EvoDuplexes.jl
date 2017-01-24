@@ -78,6 +78,30 @@ function index(x::RNABulge)
    trailing_zeros(reinterpret(UInt8, x)) + 1
 end
 
+isbulge(x::RNAPair)     = false
+isbulge(x::RNAMismatch) = false
+isbulge(x::RNABulge)    = true
+
+ispair(x::RNAPair)     = true
+ispair(x::RNAMismatch) = false
+ispair(x::RNABulge)    = false
+
+ismismatch(x::RNAPair)     = false
+ismismatch(x::RNAMismatch) = true
+ismismatch(x::RNABulge)    = false
+
+function type_cnt{NP <: NucleotidePair}( v::Vector{NP}, func::Function )
+   cnt = 0
+   @inbounds for i in 1:length(v)
+      func(v[i]) && (cnt += 1)
+   end
+   cnt
+end
+
+npairs{NP <: NucleotidePair}( v::Vector{NP} )      = type_cnt( v, ispair )
+nmismatches{NP <: NucleotidePair}( v::Vector{NP} ) = type_cnt( v, ismismatch )
+nbulges{NP <: NucleotidePair}( v::Vector{NP} )     = type_cnt( v, isbulge )
+
 isfiveprime(x::RNABulge) = reinterpret(UInt8, x) & 0x0F == 0 ? true : false
 
 function flip{NP <: NucleotidePair}(x::NP)
@@ -129,3 +153,5 @@ function is_purine_pyrimidine(x::RNAPair)
       return false
    end
 end
+
+

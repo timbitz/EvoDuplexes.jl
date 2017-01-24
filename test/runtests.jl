@@ -14,6 +14,7 @@ include("../src/trie.jl")
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
                     CU_MISMATCH, GA_MISMATCH, GG_MISMATCH, UC_MISMATCH, UU_MISMATCH]
+const bulge_set  = [AB_BULGE, CB_BULGE, GB_BULGE, UB_BULGE, BA_BULGE, BC_BULGE, BG_BULGE, BU_BULGE]
 
 @testset "Nucleotide Pairs" begin
    
@@ -97,6 +98,33 @@ const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMA
    @test isfiveprime( BC_BULGE ) == false
    @test isfiveprime( BG_BULGE ) == false
    @test isfiveprime( BU_BULGE ) == false
+
+   for b in bulge_set
+      @test !ispair(b)
+      @test isbulge(b)
+      @test !ismismatch(b)
+   end
+   @test nbulges(bulge_set) == length(bulge_set)
+   @test nmismatches(bulge_set) == 0
+   @test npairs(bulge_set) == 0
+
+   for m in mismat_set
+      @test !ispair(m)
+      @test !isbulge(m)
+      @test ismismatch(m)
+   end
+   @test nmismatches(mismat_set) == length(mismat_set)
+   @test nbulges(mismat_set) == 0
+   @test npairs(mismat_set) == 0
+
+   for p in pair_set
+      @test ispair(p)
+      @test !isbulge(p)
+      @test !ismismatch(p)
+   end
+   @test npairs(pair_set) == length(pair_set)
+   @test nbulges(pair_set) == 0
+   @test nmismatches(pair_set) == 0
 
    @test split(AB_BULGE) == 1
    @test split(CB_BULGE) == 2
@@ -296,8 +324,8 @@ end
    @test length(c) == 1
    @test length(first(c).metadata) == 2
 
-   i3 = DuplexInterval(Interval("c",2,7,'+',"genea"), 
-                       Interval("c",50,54,'+',"genea"), dup2)
+   i3 = DuplexInterval(Interval("c",1,7,'+',"genea"), 
+                       Interval("c",49,55,'+',"genea"), dup2)
    push!( c, i3 )
    @test length(c) == 1
    @test length(first(c).metadata) == 2
@@ -317,8 +345,8 @@ end
                        Interval("c",106,110,'+',"genea"), dup2)
    push!( c, i  )
    push!( c, i2 )
-   @test length(c) == 2
-   @test length(first(c).metadata) == 1
+   @test length(c) == 1
+   @test length(first(c).metadata) == 2
 
    worse = RNADuplex()
    push!(worse, [GU_PAIR,AB_BULGE,GB_BULGE,UA_PAIR,UG_PAIR,CB_BULGE,UA_PAIR])
@@ -327,9 +355,9 @@ end
                        Interval("c",100,110,'+',"genea"), worse)
 
    push!( c, i3 ) # less favorable energy should not get pushed.
-   @test length(c) == 2
-   @test length(first(c).metadata) == 1
-   @test first(c).first == 1 && first(c).last == 5
+   @test length(c) == 1
+   @test length(first(c).metadata) == 2
+   @test first(c).first == 1 && first(c).last == 25
 
    better = RNADuplex()
    push!(better, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,CG_PAIR])
@@ -338,7 +366,7 @@ end
                        Interval("c",100,110,'+',"genea"), better)
    push!( c, i3 ) # better energy should overwrite overlapping
    @test length(c) == 1
-   @test first(c).first == 1 && first(c).last == 10
+   @test first(c).first == 1 && first(c).last == 25
    @test length(first(c).metadata) == 1
 
    # Test addition of larger overwriting duplex, and subsequent deletion because of smaller higher energy duplex
@@ -352,7 +380,7 @@ end
                        Interval("c",100,110,'+',"genea"), middle)
    push!( c, i3 )
    @test length(c) == 1
-   @test first(c).first == 6 && first(c).last == 10
+   @test first(c).first == 1 && first(c).last == 25
    @test length(first(c).metadata) == 1
 
 end
@@ -408,7 +436,8 @@ end
    firstval = first(val)
    @test length(firstval.metadata) == 1
    duplexint = firstval.metadata[1]
-   @test firstval.first == 1 && firstval.last == 13
+   @test firstval.first == 1 && firstval.last == 25
+   println(duplexint)
    @test duplexint.first.first == 1 && duplexint.first.last == 13
    @test duplexint.last.first == 24 && duplexint.last.last  == 37
 

@@ -76,7 +76,7 @@ function Base.delete!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
    end
 end
 
-function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.75, size::Int=25)
+function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.85, size::Int=25)
    hasintersect = false
    added_duplex = false
    remove_added = false
@@ -149,4 +149,32 @@ function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::F
 end
 
 
+# This function 'stitches' two overlapping and compatible
+# duplexes together into one.
+function _stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::Int )
+   ret = Nullable{DuplexInterval{T}}()
+   if isoverlapping( a, b )
+      npairs_first = a.first.last - b.first.first
+      npairs_last  = b.last.last  - a.last.first
+      if npairs_first == npairs_last && a.duplex.path[end-npairs_first+1:end] == b.duplex.path[1:npairs_first]
+         spliced = deepcopy(a)
+         push!( spliced.duplex, b.duplex.path[npairs_first+1:end] )
+         spliced.first.last = b.first.last
+         spliced.last.first = b.last.first
+         if energy(spliced.duplex) < energy(a.duplex) && energy(spliced.duplex) < energy(b.duplex) &&
+            nbulges(spliced.duplex.path) <= max_bulge && nmismatches(spliced.duplex.path) <= max_mis
+            ret = Nullable(spliced)
+         end
+      end
+   end
+   ret
+end
+
+stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::Int ) = a.first < b.first ? 
+                                                                                             _stitch( a, b, max_bulge, max_mis ) : 
+                                                                                             _stitch( b, a, max_bulge, max_mis )
+#perform stitching on duplex collection
+function stitch{T}(col::DuplexCollection{T})
+   
+end
 
