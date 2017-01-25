@@ -49,10 +49,6 @@ function Base.push!{A,K}( node::TrieNode{A,K}, seq::Bio.Seq.Sequence,
       node.next[nucidx] = TrieNode{A,K}()
    end
    if curdepth in range
-      #=if length(node.offsets) == 0
-         node.offsets  = Vector{Vector{UInt32}}(length(alphabet(A)))
-         node.metadata = Vector{Vector{K}}(length(alphabet(A)))
-      end=#
       if !isdefined( node.offsets, nucidx )
          node.offsets[nucidx]  = Vector{UInt32}()
          node.metadata[nucidx] = Vector{K}()
@@ -108,7 +104,7 @@ mismatches{n}(::Type{Bio.Seq.RNAAlphabet{n}}) = RNAMISMATCH
 
 onehot{I <: Integer}(x::I) = 0x01 << (x-1)
 
-encodeindex{A <: Alphabet}(::Type{A}, x::Bio.Seq.Nucleotide) = (x == DNA_Gap) ? 0 : Bio.Seq.encode(A, x)+1
+encodeindex{A <: Alphabet}(::Type{A}, x::Bio.Seq.Nucleotide) = (x == DNA_Gap || x == RNA_Gap) ? 0 : Bio.Seq.encode(A, x)+1
 index{A <: Alphabet}(::Type{A}, func=pairs) = map( x->map(y->encodeindex(A, y), x), func(A) )
 
 Base.reverse( seq::Bio.Seq.ReferenceSequence ) = Bio.Seq.ReferenceSequence( reverse( String( seq ) ) )
@@ -136,7 +132,8 @@ end
 
 
 function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange; 
-                        bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int) )
+                        bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int),
+                        raw_output::String="")
 
    const pairs_idx      = index(A, pairs)
    const bulges_idx     = index(A, gaps)
@@ -148,41 +145,54 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
 
    const intervals      = DuplexCollection{K}()
 
+   if raw_output != ""
+      const io = open( raw_output, "w" )
+      const stream = ZlibDeflateOutputStream( io )
+      const output = true
+   else
+      const output = false
+   end
+
    @inline function traverse{A,K}( fwd::TrieNode{A,K}, rev::TrieNode{A,K},
-                                   depth::Int64, bulge_n::Int64, mismatch_n::Int64,
+                                   fdepth::Int64, rdepth::Int64,
+                                   bulge_n::Int64, mismatch_n::Int64,
                                    from_bulge::Bool, bulge_left::Bool )
-   
+
       # recurse through valid watson-crick pairs
       for (l,r) in pairs_idx
          if isa( fwd.next[l], TrieNode{A,K} ) && isa( rev.next[r], TrieNode{A,K} )
-            push!( duplex, convert(RNAPair, onehot(l), onehot(r)) ) 
-            if depth in deprange && energy(duplex) < trie.range.start*-1
+            push!( duplex, convert(RNAPair, onehot(l), onehot(r)) )
+            if output
+               tab_write( stream, (depth, energy(duplex)))
+            end
+            if fdepth in deprange && rdepth in deprange && energy(duplex) < trie.range.start*-1
                for (ix,i) in enumerate(fwd.offsets[l]), (jx,j) in enumerate(rev.offsets[r])
                   k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
                   if (k - i) + 1 in foldrange
-                     #println("$depth: $l + $r @ $i & $k @ $bulge_n @ $mismatch_n && energy=$( energy(duplex))")
                      #println(duplex)
                      const fwd_name = trie.names[ fwd.metadata[l][ix] ]
                      const rev_name = trie.names[ rev.metadata[r][jx] ]
-                     push!( intervals, DuplexInterval( Interval(fwd_name, i-depth+1, i, '?', fwd.metadata[l][ix]), 
-                                                       Interval(rev_name, k,   k+depth, '?', rev.metadata[r][jx]),
+                     push!( intervals, DuplexInterval( Interval(fwd_name, i-fdepth+1, i, '?', fwd.metadata[l][ix]), 
+                                                       Interval(rev_name, k, k+rdepth-1, '?', rev.metadata[r][jx]),
                                                        deepcopy(duplex) ) )
                   end
                end
             end
-            traverse( fwd.next[l], rev.next[r], depth + 1,
+            traverse( fwd.next[l], rev.next[r],
+                       fdepth + 1, rdepth + 1,
                        bulge_n, mismatch_n,
                        false, false )
          end
       end
       # recurse through bulges
-      if bulge_n < bulge_max && depth > 1 && duplex.energy[end] < energy_max
+      if bulge_n < bulge_max && fdepth > 1 && rdepth > 1 && duplex.energy[end] < energy_max
          for (l,r) in bulges_idx
             if l == 0
                (from_bulge && !bulge_left) && continue # only bulge one way
                if isa( rev.next[r], TrieNode{A,K} )
                   push!( duplex, convert(RNABulge, zero(UInt8), onehot(r)) )
-                  traverse( fwd, rev.next[r], depth,
+                  traverse( fwd, rev.next[r],
+                             fdepth, rdepth + 1,
                              bulge_n + 1, mismatch_n,
                              true, true )
                end
@@ -190,7 +200,8 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
                (from_bulge && bulge_left) && continue 
                if isa( fwd.next[l], TrieNode{A,K} )
                   push!( duplex, convert(RNABulge, onehot(l), zero(UInt8)) )
-                  traverse( fwd.next[l], rev, depth,
+                  traverse( fwd.next[l], rev,
+                             fdepth + 1, rdepth,
                              bulge_n + 1, mismatch_n,
                              true, false )
                end
@@ -198,11 +209,13 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
          end
       end
       # recurse through mismatches
-      if mismatch_n < mismatch_max && depth > 1 && !from_bulge && duplex.energy[end] < energy_max
+      if mismatch_n < mismatch_max && fdepth > 1 && rdepth > 1 && 
+         !from_bulge && duplex.energy[end] < energy_max
          for (l,r) in mismatches_idx
             if isa( fwd.next[l], TrieNode{A,K} ) && isa( rev.next[r], TrieNode{A,K} )
              push!( duplex, convert(RNAMismatch, onehot(l), onehot(r)) )
-             traverse( fwd.next[l], rev.next[r], depth + 1,
+             traverse( fwd.next[l], rev.next[r],
+                        fdepth + 1, rdepth + 1,
                         bulge_n, mismatch_n + 1,
                         from_bulge, bulge_left )
             end
@@ -214,8 +227,14 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
    end
 
    traverse( trie.fwd.root, trie.rev.root, 
-             one(Int), zero(Int), zero(Int),
+             one(Int), one(Int),
+             zero(Int), zero(Int),
              false, false )
+
+   if output
+      close(stream)
+      close(io)
+   end
 
    intervals
 end
