@@ -406,6 +406,7 @@ end
    for i in 1:4
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end
+   @test nodecount( trie ) == 6
 
    push!( trie, ReferenceSequence("ACGT"), "REF" )
    @test isa( trie.root, TrieNode{A} )  == true
@@ -423,6 +424,7 @@ end
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end 
    @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
+   @test nodecount( trie ) == 6
 
 end
 

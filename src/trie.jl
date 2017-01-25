@@ -59,6 +59,16 @@ function Base.push!{A,K}( node::TrieNode{A,K}, seq::Bio.Seq.Sequence,
    push!( node.next[nucidx], seq, range, idx + 1, metadata, curdepth=curdepth + 1 )
 end
 
+nodecount{A,K}( trie::RNATrie{A,K} ) = nodecount( trie.root ) - 1
+nodecount( node::NullTrieNode ) = 0
+
+function nodecount{A,K}( node::TrieNode{A,K} )
+   cnt = 1
+   for n in node.next
+      cnt += nodecount( n )
+   end
+   cnt
+end
 
 revoffset( x::Int, seq::BioSequence ) = revoffset( x, length(seq) )
 revoffset( x, len ) = len - x + 1
