@@ -1,5 +1,3 @@
-
-
 using DataFrames
 using Gadfly
 using Mamba
