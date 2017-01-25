@@ -437,7 +437,6 @@ end
    @test length(firstval.metadata) == 1
    duplexint = firstval.metadata[1]
    @test firstval.first == 1 && firstval.last == 25
-   println(duplexint)
    @test duplexint.first.first == 1 && duplexint.first.last == 13
    @test duplexint.last.first == 24 && duplexint.last.last  == 37
 
