@@ -137,6 +137,18 @@ type DuplexTrie{A <: Alphabet,K <: Integer}
       push!( rev, reverse(seq), one(K) )
       return new( fwd, rev, names, seqs, lens, range )
    end
+
+   function DuplexTrie( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, range::UnitRange; 
+                        left_seqname="chr", right_seqname="chr" )
+      fwd = RNATrie{A,K}( range )
+      rev = RNATrie{A,K}( range ) 
+      names = String[left_seqname, right_seqname]
+      seqs  = Bio.Seq.Sequence[left, right]
+      lens  = Int[length(left), length(right)]
+      push!( fwd, left, one(K) )
+      push!( rev, reverse(right), one(K)+one(K) )
+      return new( fwd, rev, names, seqs, lens, range )
+   end
 end
 
 
@@ -177,15 +189,19 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
             end
             if fdepth in deprange && rdepth in deprange && energy(duplex) < trie.range.start*-1
                for (ix,i) in enumerate(fwd.offsets[l]), (jx,j) in enumerate(rev.offsets[r])
-                  k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
-                  if (k - i) + 1 in foldrange
-                     #println(duplex)
+#                  const len = trie.lens[ 1 ]
+#                  jpos = searchsortedlast( rev.offsets[r], i+last(foldrange), by=x->revoffset(x, len), rev=true )
+#                  for jx in jpos:-1:1
+#                     const j = rev.offsets[r][jx]
+                     const k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
+                     fwd.metadata[l][ix] == rev.metadata[r][jx] && (k - i) + 1 > last(foldrange) && continue
+                     const newdup = deepcopy(duplex)
                      const fwd_name = trie.names[ fwd.metadata[l][ix] ]
                      const rev_name = trie.names[ rev.metadata[r][jx] ]
                      push!( intervals, DuplexInterval( Interval(fwd_name, i-fdepth+1, i, '?', fwd.metadata[l][ix]), 
                                                        Interval(rev_name, k, k+rdepth-1, '?', rev.metadata[r][jx]),
-                                                       deepcopy(duplex) ) )
-                  end
+                                                       newdup ) )
+                  #end
                end
             end
             traverse( fwd.next[l], rev.next[r],
