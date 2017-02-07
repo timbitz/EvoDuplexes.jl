@@ -18,6 +18,22 @@ type DuplexCollection{T}
    DuplexCollection( binsize::Int ) = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), binsize, 0)
 end
 
+function Base.minimum{T}( col::DuplexCollection{T}; default::Float64=0.0 )
+   minval = default
+   minentry = Nullable{DuplexInterval{T}}()
+   for n in keys(col.names)
+      for b in keys(col.names[n])
+         idx    = indmin(map(x->energy(x.duplex), col.names[n][b]))
+         idxdg  = energy(col.names[n][b][idx].duplex)  
+         if idxdg < minval
+            minval   = idxdg
+            minentry = Nullable(col.names[n][b][idx])
+         end
+      end
+   end
+   minentry
+end
+
 Base.length{T}( col::DuplexCollection{T} ) = col.length > 0 ? col.length : calculate_length!( col )
 
 function calculate_length!{T}( col::DuplexCollection{T} )

@@ -29,19 +29,16 @@ function Base.push!{A,K}( trie::RNATrie{A,K}, seq::Bio.Seq.Sequence, metadata::K
    if isa( trie.root, NullTrieNode )
       trie.root = TrieNode{A,K}()
    end
-   if length(seq) <= last(trie.range)
-      push!( trie.root, seq, trie.range, 1, metadata )
-   else
-      for i in 1:length(seq)-last(trie.range)+1
-         push!( trie.root, seq, trie.range, i, metadata )
-      end
+   for i in 1:length(seq)-first(trie.range)+1
+      const range = i+last(trie.range)-1 > length(seq) ? (first(trie.range):length(seq)-i+1) : trie.range
+      push!( trie.root, seq, trie.range, i, metadata )
    end
 end
 
 function Base.push!{A,K}( node::TrieNode{A,K}, seq::Bio.Seq.Sequence, 
                           range::UnitRange, idx::Int, metadata::K; 
                           curdepth::Int=1 )
-   if curdepth > last(range) || isambiguous( seq[idx] )
+   if curdepth > last(range) || idx > length(seq) || isambiguous( seq[idx] )
       return
    end
    nucidx = Bio.Seq.encode( A, seq[idx] ) + 1
@@ -146,7 +143,7 @@ type DuplexTrie{A <: Alphabet,K <: Integer}
       seqs  = Bio.Seq.Sequence[left, right]
       lens  = Int[length(left), length(right)]
       push!( fwd, left, one(K) )
-      push!( rev, reverse(right), one(K)+one(K) )
+      push!( rev, reverse(right), convert(K, 2) )
       return new( fwd, rev, names, seqs, lens, range )
    end
 end
@@ -189,19 +186,14 @@ function traverse{A,K}( trie::DuplexTrie{A,K}, foldrange::UnitRange;
             end
             if fdepth in deprange && rdepth in deprange && energy(duplex) < trie.range.start*-1
                for (ix,i) in enumerate(fwd.offsets[l]), (jx,j) in enumerate(rev.offsets[r])
-#                  const len = trie.lens[ 1 ]
-#                  jpos = searchsortedlast( rev.offsets[r], i+last(foldrange), by=x->revoffset(x, len), rev=true )
-#                  for jx in jpos:-1:1
-#                     const j = rev.offsets[r][jx]
                      const k = revoffset( j, trie.lens[ rev.metadata[r][jx] ] )
-                     fwd.metadata[l][ix] == rev.metadata[r][jx] && (k - i) + 1 > last(foldrange) && continue
+                     fwd.metadata[l][ix] == rev.metadata[r][jx] && !((k - i) + 1 in foldrange) && continue
                      const newdup = deepcopy(duplex)
                      const fwd_name = trie.names[ fwd.metadata[l][ix] ]
                      const rev_name = trie.names[ rev.metadata[r][jx] ]
                      push!( intervals, DuplexInterval( Interval(fwd_name, i-fdepth+1, i, '?', fwd.metadata[l][ix]), 
                                                        Interval(rev_name, k, k+rdepth-1, '?', rev.metadata[r][jx]),
                                                        newdup ) )
-                  #end
                end
             end
             traverse( fwd.next[l], rev.next[r],
