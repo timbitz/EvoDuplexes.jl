@@ -295,12 +295,12 @@ end
    RT * log(n_states) * -1
 end
 
-@inline function au_end_penalty( duplex::RNADuplex, range::UnitRange, param=TURNER_2004_AU_PENALTY )
+@inline function au_end_penalty( duplex::RNADuplex, range::UnitRange, param::Float64=TURNER_2004_AU_PENALTY )
    au_end_penalty( duplex.path[range.start], param ) + 
    au_end_penalty( duplex.path[range.stop],  param )
 end
 
-@inline function au_end_penalty( x::RNAPair, param=TURNER_2004_AU_PENALTY )
+@inline function au_end_penalty( x::RNAPair, param::Float64=TURNER_2004_AU_PENALTY )
    if x == AU_PAIR || x == UA_PAIR ||
       x == GU_PAIR || x == UG_PAIR
       return convert(Float64, param)
