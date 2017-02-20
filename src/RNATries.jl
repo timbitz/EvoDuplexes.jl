@@ -1,6 +1,6 @@
 #__precompile__()
 
-module RNATrie
+module RNATries
 
 using Bio
 using Bio.Seq

@@ -6,10 +6,49 @@ type DuplexInterval{T}
    duplex::RNADuplex   # rna duplex formed
 end
 
-# a DuplexCollection contains DuplexIntervals indexed by first interval
-typealias DuplexCollection{T} IntervalCollection{Vector{DuplexInterval{T}}}
+const ZERO_DUPLEX_INTERVAL = DuplexInterval(Interval("", 0, 0), Interval("", 0, 0), RNADuplex())
 
-fixed_interval{I <: Integer}( val::I, size::Int ) = (v = div(val, size)*size; return (v+1, v+size))
+# a DuplexCollection contains DuplexIntervals indexed by first interval
+type DuplexCollection{T}
+   names::Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}
+   binsize::Int64
+   length::Int64
+
+   DuplexCollection()               = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), 50, 0 )
+   DuplexCollection( binsize::Int ) = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), binsize, 0)
+end
+
+function Base.minimum{T}( col::DuplexCollection{T}; default::Float64=0.0 )
+   minval = default
+   minentry = Nullable{DuplexInterval{T}}()
+   for n in keys(col.names)
+      for b in keys(col.names[n])
+         idx    = indmin(map(x->energy(x.duplex), col.names[n][b]))
+         idxdg  = energy(col.names[n][b][idx].duplex)  
+         if idxdg < minval
+            minval   = idxdg
+            minentry = Nullable(col.names[n][b][idx])
+         end
+      end
+   end
+   minentry
+end
+
+Base.length{T}( col::DuplexCollection{T} ) = col.length > 0 ? col.length : calculate_length!( col )
+
+function calculate_length!{T}( col::DuplexCollection{T} )
+   for n in keys(col.names)
+      for b in keys(col.names[n])
+         col.length += length(col.names[n][b])
+      end
+   end
+   col.length
+end
+
+# hash by identity for speed
+Base.hash(x::UInt64) = x
+
+@inline bin{I <: Integer}( val::I, size::Int ) = (v = div(val, size)*size; return UInt64(v+1))
 
 function isoverlapping{S,T}(x::Interval{S}, y::Interval{T}, identity::Float64)
    if isoverlapping( x, y )
@@ -22,25 +61,30 @@ function isoverlapping{S,T}(x::Interval{S}, y::Interval{T}, identity::Float64)
    return false
 end
 
-isoverlapping(x::DuplexInterval, y::DuplexInterval) = isoverlapping(x.first, y.first) && 
-                                                      isoverlapping(x.last, y.last) ? true : false
-isoverlapping(x::DuplexInterval, y::DuplexInterval, ident::Float64) = isoverlapping(x.first, y.first, ident) && 
-                                                                      isoverlapping(x.last, y.last, ident) ? true : false
+@inline isoverlapping(x::DuplexInterval, y::DuplexInterval) = isoverlapping(x.first, y.first) && 
+                                                              isoverlapping(x.last, y.last) ? true : false
+@inline isoverlapping(x::DuplexInterval, y::DuplexInterval, ident::Float64) = isoverlapping(x.first, y.first, ident) && 
+                                                                              isoverlapping(x.last, y.last, ident) ? true : false
 
-
-Base.isless(x::DuplexInterval, y::DuplexInterval) = (x.first.first == y.first.first && x.first.last == y.first.last) ? 
-                                                    Bio.Intervals.isless(x.last, y.last) : Bio.Intervals.isless(x.first, y.first)
+@inline precedes(x::DuplexInterval, y::DuplexInterval) = Bio.Intervals.precedes(x.first, y.first)
+@inline Base.isless(x::DuplexInterval, y::DuplexInterval) = (x.first.first == y.first.first && x.first.last == y.first.last) ? 
+                                                             Bio.Intervals.isless(x.last, y.last) : Bio.Intervals.isless(x.first, y.first)
 
 Base.:<(x::DuplexInterval, y::DuplexInterval) = isless( x, y )
 
 # return boolean of whether the duplex collection is
 # properly ordered or not.
 function isordered{T}( col::DuplexCollection{T} )
-   for i in col
-      const dupvector = i.metadata
-      for j in 2:length(dupvector)
-         if !isless( dupvector[j-1], dupvector[j] )
-            return false
+   for n in keys(col.names)
+      const dict = col.names[n]
+      prev = ZERO_DUPLEX_INTERVAL
+      for b in sort(collect(keys(dict)))
+         const vect = dict[b]
+         for i in 1:length(vect)
+            if !isless( prev, vect[i] )
+               return false
+            end
+            prev = vect[i]
          end
       end
    end
@@ -48,104 +92,82 @@ function isordered{T}( col::DuplexCollection{T} )
 end
 
 function Base.delete!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
-   for_deletion = Nullable{Vector{Tuple{AbstractString,Int64,Int64}}}()
-   if haskey( col.trees, int.first.seqname ) && length(col.trees[int.first.seqname]) > 0
-      for i in intersect(col, int.first)
-         const dupvector = i.metadata
-         j = 1
-         while j <= length(dupvector)
-            if dupvector[j] == int
-               splice!( dupvector, j )
-            else
-               j += 1
-            end
-         end
-         if length(dupvector) == 0
-            if isnull(for_deletion)
-               for_deletion = Nullable(Vector{Tuple{AbstractString,Int64,Int64}}())
-            end
-            push!( for_deletion.value, (i.seqname, i.first, i.last) )
-         end
-      end
-      if !isnull(for_deletion) && length(for_deletion.value) > 0
-         for (n,f,l) in for_deletion.value
-            IntervalTrees.deletefirst!( col.trees[n], f, l )
-            col.length -= 1
-         end
+   const key = bin( int.first.first, col.binsize )
+   if haskey( col.names, int.first.seqname ) && length(col.names[int.first.seqname][key]) > 0
+      const vect = col.names[int.first.seqname][key]
+      delete!( vect, int )
+      if length(vect) == 0
+         delete!( col.names[int.first.seqname], key )
       end
    end
 end
 
-function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T}; rate::Float64=0.85, size::Int=25)
-   hasintersect = false
-   added_duplex = false
-   remove_added = false
-
-   for_deletion = Nullable{Vector{Tuple{AbstractString,Int64,Int64}}}()
-
-   if haskey( col.trees, int.first.seqname )
-      for i in intersect(col, int.first)
-         const dupvector = i.metadata
-         hasintersect = true
-         j = 1
-         while j <= length(dupvector)
-            if added_duplex && isoverlapping( int, dupvector[j], rate )
-               if energy(int.duplex) < energy(dupvector[j].duplex)
-                  splice!( dupvector, j )
-                  j -= 1
-               else
-                  remove_added = true
-               end
-            elseif isoverlapping( int, dupvector[j], rate )
-               if energy(int.duplex) < energy(dupvector[j].duplex)
-                  splice!( dupvector, j )
-                  push!( col, int, rate=rate, size=size )
-                  added_duplex = true
-                  break
-               else
-                  return
-               end
-            elseif !added_duplex && isless( int, dupvector[j] )
-               insert!( dupvector, j, int )
-               added_duplex = true
-            end
-            j += 1
-         end
-         if !added_duplex
-            push!( dupvector, int )
-            added_duplex = true
-         end
-
-         # push for deletion
-         if length(dupvector) == 0
-            if isnull(for_deletion)
-               for_deletion = Nullable(Vector{Tuple{AbstractString,Int64,Int64}}())
-            end
-            push!( for_deletion.value, (i.seqname, i.first, i.last) )
-         end
-      end
-   
-      if remove_added
-         delete!(col, int)
-         return
+function Base.delete!{T}( vect::Vector{DuplexInterval{T}}, int::DuplexInterval{T} )
+   j = searchsortedfirst( vect, int )
+   while j <= length(vect)
+      if vect[j] == int
+         deleteat!( vect, j )
+      else
+         j += 1
       end
    end
-   # delete empty interval entries
-   if !isnull(for_deletion)
-      for (n,f,l) in for_deletion.value
-         IntervalTrees.deletefirst!( col.trees[n], f, l )
-         col.length -= 1
+end
+
+@inline function Base.push!{T}(col::DuplexCollection{T}, int::DuplexInterval{T})
+   if !haskey(col.names, int.first.seqname)
+      col.names[int.first.seqname] = Dict{UInt64,Vector{DuplexInterval{T}}}()
+   end
+   key = bin( int.first.first, col.binsize )
+   # check bins before and after for better matches
+   if !findbetter(col.names[int.first.seqname], key-0x01, int, true) &&
+      !findbetter(col.names[int.first.seqname], key+0x01, int, false)
+        pushinterval!(col.names[int.first.seqname], key, int)
+   end
+end
+
+@inline function findbetter{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}, left::Bool=true)
+   !haskey( dict, key ) && (return false)
+   const vect = dict[key]
+   i = left ? searchsortedfirst( vect, int, lt=precedes ) : 1
+   while i <= length(vect)
+      if left && precedes( int, vect[j] )
+         return false
+      elseif isoverlapping( vect[i], int ) 
+         if energy(vect[i].duplex) < energy(int.duplex)
+            return true
+         else
+            deleteat!( vect, i )
+            continue
+         end
       end
+      i += 1
    end
-
-   # push new interval and duplex
-   if !hasintersect
-      bounds = fixed_interval( int.first.first, size )
-      ival = Interval(int.first.seqname, bounds[1], bounds[2], int.first.strand, [ int ])
-      push!( col, ival )
+   if length(vect) == 0
+      delete!( dict, key )
    end
+   return false
+end
 
-   return
+
+function pushinterval!{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}; rate::Float64=0.85)
+   if !haskey( dict, key )
+      dict[key] = Vector{DuplexInterval{T}}()
+   end
+   const vect = dict[key]
+
+   j = searchsortedfirst( vect, int, lt=precedes )
+   while j <= length(vect)
+      if isoverlapping( int, vect[j], rate )
+         if energy(int.duplex) < energy(vect[j].duplex)
+            splice!( vect, j )
+            j -= 1
+         else
+            return
+         end
+      end
+      j += 1
+   end 
+   insert!( vect, searchsortedfirst( vect, int ), int )
 end
 
 
@@ -154,8 +176,8 @@ end
 function _stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::Int )
    ret = Nullable{DuplexInterval{T}}()
    if isoverlapping( a, b )
-      npairs_first = a.first.last - b.first.first
-      npairs_last  = b.last.last  - a.last.first
+      npairs_first = a.first.last - b.first.first + 1
+      npairs_last  = b.last.last  - a.last.first + 1
       if npairs_first == npairs_last && a.duplex.path[end-npairs_first+1:end] == b.duplex.path[1:npairs_first]
          spliced = deepcopy(a)
          push!( spliced.duplex, b.duplex.path[npairs_first+1:end] )
@@ -175,6 +197,34 @@ stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::
                                                                                              _stitch( b, a, max_bulge, max_mis )
 #perform stitching on duplex collection
 function stitch{T}(col::DuplexCollection{T})
-   
+   for n in keys(col.names)
+      res  = Vector{DuplexInterval{T}}()
+      bins = sort(collect(keys(col.names[n])))
+      for i in 1:length(bins)
+         if i < length(bins) && bins[i+1] == bins[i]+1
+            stitch!( res, [ col.names[n][bins[i]]; col.names[n][bins[i+1]] ] )
+         else
+            stitch!( res, col.names[n][bins[i]] )
+         end
+      end
+      res = rec_stitch( res )
+      return res
+   end
 end
 
+function stitch!{T}( res::Vector{DuplexInterval{T}}, vect::Vector{DuplexInterval{T}} )
+   for i in 1:length(vect)
+      for j in i:searchsortedlast( vect, vect[i], lt=precedes )
+         j == i && continue
+         #@assert isoverlapping( vect[i].first, vect[j].first )
+         sval = stitch( vect[i], vect[j], 3, 3 )
+         if !isnull(sval)
+            push!( res, sval.value )
+         end
+      end
+   end
+end
+
+#function rec_stitch{T}( vect::Vector{DuplexInterval{T}}() )
+   
+#end
