@@ -2,6 +2,7 @@
 
 module RNATrie
 
+using Bio
 using Bio.Seq
 using Bio.Intervals
 
