@@ -5,6 +5,7 @@ module RNATrie
 using Bio.Seq
 using Bio.Intervals
 
+importall Bio.Seq
 importall Bio.Intervals
 
 include("pairs.jl")
