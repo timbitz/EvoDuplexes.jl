@@ -15,4 +15,10 @@ include("duplex.jl")
 include("intervals.jl")
 include("trie.jl")
 
+export RNATrie,
+       DuplexTrie,
+       DuplexCollection,
+       traverse,
+       stitch
+
 end
