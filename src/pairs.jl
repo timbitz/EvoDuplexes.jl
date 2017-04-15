@@ -104,6 +104,14 @@ nbulges{NP <: NucleotidePair}( v::Vector{NP} )     = type_cnt( v, isbulge )
 
 isfiveprime(x::RNABulge) = reinterpret(UInt8, x) & 0x0F == 0 ? true : false
 
+isbulgefive(x::RNABulge)    = isfiveprime(x)
+isbulgefive(x::RNAPair)     = false
+isbulgefive(x::RNAMismatch) = false
+
+isbulgethree(x::RNABulge)    = !isfiveprime(x)
+isbulgethree(x::RNAPair)     = false
+isbulgethree(x::RNAMismatch) = false
+
 function flip{NP <: NucleotidePair}(x::NP)
    left   = convert(UInt8, x) >> 4
    retval = (convert(UInt8, x) & 0x0F) << 4

@@ -1,7 +1,5 @@
 abstract AbstractTrieNode
 
-typealias Alphabet Bio.Seq.Alphabet
-
 immutable NullTrieNode <: AbstractTrieNode
 end
 
