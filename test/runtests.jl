@@ -303,7 +303,7 @@ end
 
 end
 
-@testset "Duplex Intervals" begin
+@testset "Duplex Interval Collection" begin
 
    # Test pushing, overwriting, and ordering
    dup = RNADuplex()
@@ -312,8 +312,8 @@ end
    i = DuplexInterval(Interval("c",1,6,'+',"genea"), 
                       Interval("c",50,55,'+',"genea"), dup)
    push!( c, i )
-   @test length(c) == 1
-   @test length(first(c).metadata) == 1
+   @test length(c.names["c"]) == 1
+   @test length(c.names["c"][one(UInt64)]) == 1
 
    dup2 = deepcopy( dup )
    push!( dup2, CG_PAIR )
@@ -321,14 +321,14 @@ end
    i2 = DuplexInterval(Interval("c",2,7,'+',"genea"), 
                        Interval("c",20,25,'+',"genea"), dup2)
    push!( c, i2 )
-   @test length(c) == 1
-   @test length(first(c).metadata) == 2
+   @test length(c.names["c"]) == 1
+   @test length(c.names["c"][one(UInt64)]) == 2
 
    i3 = DuplexInterval(Interval("c",1,7,'+',"genea"), 
                        Interval("c",49,55,'+',"genea"), dup2)
    push!( c, i3 )
-   @test length(c) == 1
-   @test length(first(c).metadata) == 2
+   @test length(c.names["c"]) == 1
+   @test length(c.names["c"][one(UInt64)]) == 2
 
    @test isordered(c)
 
@@ -345,8 +345,8 @@ end
                        Interval("c",106,110,'+',"genea"), dup2)
    push!( c, i  )
    push!( c, i2 )
-   @test length(c) == 1
-   @test length(first(c).metadata) == 2
+   @test length(c.names["c"]) == 1
+   @test length(c.names["c"][one(UInt64)]) == 2
 
    worse = RNADuplex()
    push!(worse, [GU_PAIR,AB_BULGE,GB_BULGE,UA_PAIR,UG_PAIR,CB_BULGE,UA_PAIR])
@@ -355,9 +355,10 @@ end
                        Interval("c",100,110,'+',"genea"), worse)
 
    push!( c, i3 ) # less favorable energy should not get pushed.
-   @test length(c) == 1
-   @test length(first(c).metadata) == 2
-   @test first(c).first == 1 && first(c).last == 25
+   @test length(c.names["c"]) == 1
+   @test length(c.names["c"][one(UInt64)]) == 2
+   firstint = c.names["c"][one(UInt64)][1]
+   @test firstint.first.first == 1 && firstint.first.last == 5
 
    better = RNADuplex()
    push!(better, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,CG_PAIR])
@@ -365,9 +366,10 @@ end
    i3 = DuplexInterval(Interval("c",1,10,'+',"genea"),
                        Interval("c",100,110,'+',"genea"), better)
    push!( c, i3 ) # better energy should overwrite overlapping
-   @test length(c) == 1
-   @test first(c).first == 1 && first(c).last == 25
-   @test length(first(c).metadata) == 1
+   @test length(c.names["c"]) == 1
+   firstint = c.names["c"][one(UInt64)][1]
+   @test firstint.first.first == 1 && firstint.first.last == 10
+   @test length(c.names["c"][one(UInt64)]) == 1
 
    # Test addition of larger overwriting duplex, and subsequent deletion because of smaller higher energy duplex
    c = DuplexCollection{String}()
@@ -379,9 +381,27 @@ end
    i3 = DuplexInterval(Interval("c",1,10,'+',"genea"),
                        Interval("c",100,110,'+',"genea"), middle)
    push!( c, i3 )
-   @test length(c) == 1
-   @test first(c).first == 1 && first(c).last == 25
-   @test length(first(c).metadata) == 1
+   @test length(c.names["c"]) == 1
+   firstint = c.names["c"][one(UInt64)][1]
+   @test firstint.first.first == 6 && firstint.first.last == 10
+   @test length(c.names["c"][one(UInt64)]) == 1
+
+end
+
+@testset "Duplex Intervals Stitching" begin
+
+   c = DuplexCollection{String}()
+   dup = RNADuplex()
+   push!(dup, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,GC_PAIR])
+   i = DuplexInterval(Interval("c",  1,  6,'+',"genea"),
+                      Interval("c",105,110,'+',"genea"), dup)
+   dup2 = RNADuplex()
+   push!(dup2, [GC_PAIR,GC_PAIR,UG_PAIR,AU_PAIR,CG_PAIR,GC_PAIR])
+   i2 = DuplexInterval(Interval("c",  5, 10,'+',"genea"),
+                       Interval("c",101,106,'+',"genea"), dup2)
+
+   @test !isnull( stitch(i, i2, 3, 3) )
+   @test !isnull( stitch(i2, i, 3, 3) )   
 
 end
 
@@ -393,10 +413,9 @@ end
    @test isa( trie.root, NullTrieNode ) == true
    push!( trie, dna"ACGT", "DNA" )
    @test isa( trie.root, TrieNode{A} )  == true
-   @test trie.root.offsets[1] == [1]
-   @test trie.root.offsets[2] == [2]
-   @test isdefined( trie.root.offsets, 3 ) == false
-   @test isdefined( trie.root.offsets, 4 ) == false
+   for i in 1:4
+      @test trie.root.offsets[i] == [i]
+   end
    @test trie.root.next[1].offsets[2] == [2]
    @test trie.root.next[1].next[2].offsets[3] == [3]
    for i in 1:4
@@ -406,14 +425,13 @@ end
    for i in 1:4
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end
-   @test nodecount( trie ) == 6
+   @test nodecount( trie ) == 9
 
    push!( trie, ReferenceSequence("ACGT"), "REF" )
    @test isa( trie.root, TrieNode{A} )  == true
-   @test trie.root.offsets[1] == [1,1]
-   @test trie.root.offsets[2] == [2,2]
-   @test isdefined( trie.root.offsets, 3 ) == false
-   @test isdefined( trie.root.offsets, 4 ) == false
+   for i in 1:4
+      @test trie.root.offsets[i] == [i,i]
+   end
    @test trie.root.next[1].offsets[2] == [2,2]
    @test trie.root.next[1].next[2].offsets[3] == [3,3]
    for i in 1:4
@@ -424,12 +442,12 @@ end
       @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
    end 
    @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
-   @test nodecount( trie ) == 6
+   @test nodecount( trie ) == 9
 
 end
 
 @testset "Duplex Trie Building and Traversal" begin
-
+#=
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
    @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
@@ -441,5 +459,5 @@ end
    @test firstval.first == 1 && firstval.last == 25
    @test duplexint.first.first == 1 && duplexint.first.last == 13
    @test duplexint.last.first == 24 && duplexint.last.last  == 37
-
+=#
 end

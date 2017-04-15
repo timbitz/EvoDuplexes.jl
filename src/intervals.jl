@@ -34,7 +34,23 @@ function Base.minimum{T}( col::DuplexCollection{T}; default::Float64=0.0 )
    minentry
 end
 
-Base.length{T}( col::DuplexCollection{T} ) = col.length > 0 ? col.length : calculate_length!( col )
+function Base.collect{T}( col::DuplexCollection{T}; minlength::Int=1, minenergy::Float64=0.0 )
+   res = Vector{DuplexInterval{T}}()
+   for n in keys(col.names)
+      for b in sort(collect(keys(col.names[n])))
+         for d in col.names[n][b]
+            if npairs( d.duplex.path ) >= minlength &&
+               energy( d.duplex ) <= minenergy
+                push!( res, d )
+            end
+         end
+      end
+   end
+   res
+end
+
+
+Base.length{T}( col::DuplexCollection{T}; keep::Bool=false ) = col.length > 0 && keep ? col.length : calculate_length!( col )
 
 function calculate_length!{T}( col::DuplexCollection{T} )
    for n in keys(col.names)
@@ -148,13 +164,7 @@ end
    return false
 end
 
-
-function pushinterval!{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}; rate::Float64=0.85)
-   if !haskey( dict, key )
-      dict[key] = Vector{DuplexInterval{T}}()
-   end
-   const vect = dict[key]
-
+function pushinterval!{T}(vect::Vector{DuplexInterval{T}}, int::DuplexInterval{T}; rate::Float64=0.95)
    j = searchsortedfirst( vect, int, lt=precedes )
    while j <= length(vect)
       if isoverlapping( int, vect[j], rate )
@@ -166,26 +176,56 @@ function pushinterval!{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, in
          end
       end
       j += 1
-   end 
-   insert!( vect, searchsortedfirst( vect, int ), int )
+   end
+   insert!( vect, searchsortedfirst( vect, int ), int ) 
+end
+
+@inline function pushinterval!{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}; rate::Float64=0.95)
+   if !haskey( dict, key )
+      dict[key] = Vector{DuplexInterval{T}}()
+   end
+   const vect = dict[key]
+   pushinterval!( vect, int, rate=rate )
 end
 
 
 # This function 'stitches' two overlapping and compatible
 # duplexes together into one.
-function _stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::Int )
+@inline function _stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::Int )
    ret = Nullable{DuplexInterval{T}}()
    if isoverlapping( a, b )
       npairs_first = a.first.last - b.first.first + 1
-      npairs_last  = b.last.last  - a.last.first + 1
-      if npairs_first == npairs_last && a.duplex.path[end-npairs_first+1:end] == b.duplex.path[1:npairs_first]
+      npairs_last  = b.last.last  - a.last.first  + 1
+      afirst,alast = strings(a.duplex.path)
+      bfirst,blast = strings(b.duplex.path)
+      npairs = index_npairs(b.duplex.path, npairs_first, npairs_last)
+      if abs(npairs_first - npairs_last) <= max_bulge &&
+         length(bfirst) - npairs_first > 0 &&
+         length(blast)  - npairs_last  > 0 &&
+         npairs_first <= length(afirst) && npairs_first <= length(bfirst) &&
+         npairs_last  <= length(alast)  && npairs_last  <= length(blast) &&
+         afirst[end-npairs_first+1:end] == bfirst[1:npairs_first] && 
+         alast[end-npairs_last+1:end]   == blast[1:npairs_last]
+
          spliced = deepcopy(a)
-         push!( spliced.duplex, b.duplex.path[npairs_first+1:end] )
+         push!( spliced.duplex, b.duplex.path[npairs+1:end] )
          spliced.first.last = b.first.last
          spliced.last.first = b.last.first
-         if energy(spliced.duplex) < energy(a.duplex) && energy(spliced.duplex) < energy(b.duplex) &&
-            nbulges(spliced.duplex.path) <= max_bulge && nmismatches(spliced.duplex.path) <= max_mis
-            ret = Nullable(spliced)
+         aspliced, bspliced = strings(spliced.duplex)
+              #println("$a\n$b\n")
+              #println("$afirst : $alast")
+              #println("$bfirst : $blast")
+              #println("$npairs_first : $npairs_last : $npairs")
+              #println("$(b.duplex.path[npairs+1:end])")
+              #println("RESULT: $spliced")
+                                                                  
+         if spliced.first.last - spliced.first.first + 1 == length(aspliced) &&
+            spliced.last.last  - spliced.last.first  + 1 == length(bspliced) &&
+            energy(spliced.duplex) < energy(a.duplex) && 
+            energy(spliced.duplex) < energy(b.duplex) &&
+            nbulges(spliced.duplex.path) <= max_bulge && 
+            nmismatches(spliced.duplex.path) <= max_mis
+             ret = Nullable(spliced)
          end
       end
    end
@@ -197,34 +237,45 @@ stitch{T}( a::DuplexInterval{T}, b::DuplexInterval{T}, max_bulge::Int, max_mis::
                                                                                              _stitch( b, a, max_bulge, max_mis )
 #perform stitching on duplex collection
 function stitch{T}(col::DuplexCollection{T})
+   colret = deepcopy(col)
    for n in keys(col.names)
       res  = Vector{DuplexInterval{T}}()
       bins = sort(collect(keys(col.names[n])))
       for i in 1:length(bins)
          if i < length(bins) && bins[i+1] == bins[i]+1
-            stitch!( res, [ col.names[n][bins[i]]; col.names[n][bins[i+1]] ] )
+            rec_stitch!( res, [ col.names[n][bins[i]]; col.names[n][bins[i+1]] ] )
          else
-            stitch!( res, col.names[n][bins[i]] )
+            rec_stitch!( res, col.names[n][bins[i]] )
          end
       end
-      res = rec_stitch( res )
-      return res
+      for r in res
+         push!( colret, r )
+      end
    end
+   colret
 end
 
 function stitch!{T}( res::Vector{DuplexInterval{T}}, vect::Vector{DuplexInterval{T}} )
    for i in 1:length(vect)
       for j in i:searchsortedlast( vect, vect[i], lt=precedes )
          j == i && continue
-         #@assert isoverlapping( vect[i].first, vect[j].first )
-         sval = stitch( vect[i], vect[j], 3, 3 )
+         sval = stitch( vect[i], vect[j], 5, 5 )
          if !isnull(sval)
-            push!( res, sval.value )
+            pushinterval!( res, sval.value )
          end
       end
    end
 end
 
-#function rec_stitch{T}( vect::Vector{DuplexInterval{T}}() )
-   
-#end
+function rec_stitch!{T}( res::Vector{DuplexInterval{T}}, vect::Vector{DuplexInterval{T}} )
+   newvec = Vector{DuplexInterval{T}}()
+   stitch!( newvec, vect )
+   if length(newvec) > 0
+      rec_stitch!( res, newvec )
+      for r in newvec
+         pushinterval!( res, r )
+      end
+   end
+   res
+end
+

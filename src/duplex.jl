@@ -88,6 +88,74 @@ function Base.show( io::IO, duplex::RNADuplex )
    end
 end
 
+function index_npairs{NP <: NucleotidePair}( path::Vector{NP}, nfive::Int, nthree::Int )
+   i = 1
+   lcnt  = 0
+   rcnt  = 0
+   while i <= length(path) && (lcnt < nfive || rcnt < nthree)
+      if isbulge(path[i])
+         if isfiveprime(path[i])
+            lcnt += 1
+         else
+            rcnt += 1
+         end
+      else
+         lcnt += 1
+         rcnt += 1
+      end
+      i += 1
+   end
+   i - 1
+end
+
+function strings{NP <: NucleotidePair}( path::Vector{NP} )
+   first = ""
+   last  = ""
+   chars = ["A", "C", "G", "U"]
+   for pair in path
+      if isbulge(pair)
+         i = split(pair)
+         if isfiveprime(pair)
+            first *= chars[i]
+         else
+            last  *= chars[i]
+         end
+      else
+         f,l = split(pair)
+         first *= chars[f]
+         last  *= chars[l]
+      end
+   end
+   first,last
+end
+
+strings( duplex::RNADuplex ) = strings( duplex.path )
+
+function entropy( prob::Vector{Float64} )
+   entropy = 0.0
+   for p in prob
+      if p > 0.0
+         entropy += p * log2(p)
+      end
+   end
+   entropy * -1
+end
+
+function increment_dinuc!( prob::Vector{Float64}, rna_string::String )
+   for i in 1:length(rna_string)-1
+      ind = UInt64(RNAKmer(rna_string[i:i+1]))+1
+      prob[ind] += 1
+   end
+end
+
+function dinucleotide_entropy( duplex::RNADuplex )
+   five,three = strings( duplex )
+   prob = zeros(16)
+   increment_dinuc!( prob, five )
+   #increment_dinuc!( prob, three )
+   prob /= sum(prob)
+   entropy(prob)
+end
 
 @inline function energy( duplex::RNADuplex )
    length(duplex.path) >= 1 ? Float64(signif( duplex.energy[end] + 
