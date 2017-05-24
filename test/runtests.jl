@@ -9,7 +9,7 @@ include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/duplex.jl")
 include("../src/intervals.jl")
-include("../src/trie2.jl")
+include("../src/trie.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,

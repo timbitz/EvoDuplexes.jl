@@ -28,14 +28,14 @@ function writebed{T}( io, dup::DuplexInterval{T}, name::String; maxdistance::Int
       tab_write( io, string(dup.first.seqname) )
       tab_write( io, string(dup.first.first-1) )
       tab_write( io, string(dup.last.last) )
-      tab_write( io, "DuplexTrie:" * name )
+      tab_write( io, "RNAPreSuffix:" * name )
       tab_write( io, string(min(1000, energy(dup.duplex) * -250)) )
       tab_write( io, dup.first.strand == STRAND_POS ? '+' : '-' )
-      tab_write( io, '.' )
-      tab_write( io, '.' )
+      tab_write( io, string(dup.first.first-1) )
+      tab_write( io, string(dup.last.last) )
       tab_write( io, random_rgb_str() )
       tab_write( io, "2" )
       tab_write( io, string(length(dup.first.first:dup.first.last)) * "," * string(length(dup.last.first:dup.last.last)) )
-      end_write( io, string(dup.first.first-1) * "," * string(dup.last.first-1) )
+      end_write( io, string(0) * "," * string(dup.last.first-dup.first.first) )
    end
 end
