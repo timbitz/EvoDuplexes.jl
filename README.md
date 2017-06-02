@@ -1,4 +1,4 @@
-# RNATries.jl
+# RNASuffix.jl
 
 [![Build Status](https://travis-ci.com/timbitz/RNASuffix.jl.svg?token=R7mZheNGhsReQ7hn2gdf&branch=master)](https://travis-ci.com/timbitz/RNASuffix.jl)
 
