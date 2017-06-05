@@ -8,9 +8,6 @@ immutable RNAGenomeCoord
    length::Int
 end
 
-gap{n}(::Type{DNAAlphabet{n}}) = DNA_Gap
-gap{n}(::Type{RNAAlphabet{n}}) = RNA_Gap
-
 type RNASuffix{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
    sai::Vector{I}
    meta::Vector{K}
@@ -95,55 +92,6 @@ type DuplexSuffix{A,I,K}
 
 end
 
-const DNAPAIRS = [(DNA_A, DNA_T),   (DNA_T, DNA_A),
-                  (DNA_G, DNA_C),   (DNA_C, DNA_G),
-                  (DNA_G, DNA_T),   (DNA_T, DNA_G)]
-
-const DNAGAPS  = [(DNA_A, DNA_Gap), (DNA_Gap, DNA_A),
-                  (DNA_C, DNA_Gap), (DNA_Gap, DNA_C),
-                  (DNA_G, DNA_Gap), (DNA_Gap, DNA_G),
-                  (DNA_T, DNA_Gap), (DNA_Gap, DNA_T)]
-
-const DNAMISMATCH = [(DNA_A, DNA_A), (DNA_A, DNA_C),
-                     (DNA_A, DNA_G), (DNA_C, DNA_A),
-                     (DNA_C, DNA_C), (DNA_C, DNA_T),
-                     (DNA_G, DNA_A), (DNA_G, DNA_G),
-                     (DNA_T, DNA_C), (DNA_T, DNA_T)]
-
-const RNAPAIRS = [(RNA_A, RNA_U), (RNA_U, RNA_A),
-                  (RNA_G, RNA_C), (RNA_C, RNA_G),
-                  (RNA_G, RNA_U), (RNA_U, RNA_G)]
-
-const RNAGAPS  = [(RNA_A, RNA_Gap), (RNA_Gap, RNA_A),
-                  (RNA_C, RNA_Gap), (RNA_Gap, RNA_C),
-                  (RNA_G, RNA_Gap), (RNA_Gap, RNA_G),
-                  (RNA_U, RNA_Gap), (RNA_Gap, RNA_U)]
-
-const RNAMISMATCH = [(RNA_A, RNA_A), (RNA_A, RNA_C),
-                     (RNA_A, RNA_G), (RNA_C, RNA_A),
-                     (RNA_C, RNA_C), (RNA_C, RNA_U),
-                     (RNA_G, RNA_A), (RNA_G, RNA_G),
-                     (RNA_U, RNA_C), (RNA_U, RNA_U)]
-
-typealias PairsType Vector{Tuple{Bio.Seq.Nucleotide, Bio.Seq.Nucleotide}}
-
-pairs{n}(::Type{Bio.Seq.DNAAlphabet{n}})      = DNAPAIRS
-pairs{n}(::Type{Bio.Seq.RNAAlphabet{n}})      = RNAPAIRS
-gaps{n}(::Type{Bio.Seq.DNAAlphabet{n}})       = DNAGAPS
-gaps{n}(::Type{Bio.Seq.RNAAlphabet{n}})       = RNAGAPS
-mismatches{n}(::Type{Bio.Seq.DNAAlphabet{n}}) = DNAMISMATCH
-mismatches{n}(::Type{Bio.Seq.RNAAlphabet{n}}) = RNAMISMATCH
-
-onehot{I <: Integer}(x::I) = 0x01 << (x-1)
-
-encodeindex{A <: Alphabet}(::Type{A}, x::Bio.Seq.Nucleotide) = (x == DNA_Gap || x == RNA_Gap) ? 0 : Bio.Seq.encode(A, x)+1
-index{A <: Alphabet}(::Type{A}, func=pairs) = map( x->map(y->encodeindex(A, y), x), func(A) )
-
-Base.reverse( seq::Bio.Seq.ReferenceSequence ) = Bio.Seq.ReferenceSequence( reverse( String( seq ) ) )
-
-revoffset( x::Int, seq::Bio.Seq.Sequence ) = revoffset( x, length(seq) )
-revoffset( x, len ) = len - x + 1
-
 function positions{N <: Bio.Seq.Nucleotide}( nucs::Vector{N}, lo::Int, hi::Int, alpha::Tuple{Vararg{N}} )
    map( x->searchsorted(nucs, x, lo, hi, Base.Order.ForwardOrdering()), alpha ) 
 end
@@ -194,7 +142,7 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
                tab_write( stream, (depth, energy(duplex)))
             end
             if fdepth in deprange && rdepth in deprange && energy(duplex) < minfold
-#=               for (ix,i) in enumerate(dsa.fwd.sai[franges[l]]), (jx,j) in enumerate(dsa.rev.sai[rranges[r]])
+               for (ix,i) in enumerate(dsa.fwd.sai[franges[l]]), (jx,j) in enumerate(dsa.rev.sai[rranges[r]])
                      const fwd_meta = dsa.fwd.meta[ix]
                      const rev_meta = dsa.rev.meta[jx]
                      const len = length( dsa.rev.seqs[ fwd_meta ] )
@@ -209,7 +157,7 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
                                                        Interval(rev_entry.name, rg+(k-rdepth+1), rg+k, '?', rev_meta),
                                                        newdup ) )
                end
-=#            end
+            end
             _traverse(  fdepth + 1, rdepth + 1,
                         franges[l], rranges[r],
                         bulge_n, mismatch_n,

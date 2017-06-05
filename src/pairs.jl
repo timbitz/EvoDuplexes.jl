@@ -162,4 +162,3 @@ function is_purine_pyrimidine(x::RNAPair)
    end
 end
 
-
