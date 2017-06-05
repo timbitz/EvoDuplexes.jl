@@ -164,7 +164,7 @@ end
    return false
 end
 
-function pushinterval!{T}(vect::Vector{DuplexInterval{T}}, int::DuplexInterval{T}; rate::Float64=0.95)
+function pushinterval!{T}(vect::Vector{DuplexInterval{T}}, int::DuplexInterval{T}; rate::Float64=0.99)
    j = searchsortedfirst( vect, int, lt=precedes )
    while j <= length(vect)
       if isoverlapping( int, vect[j], rate )
@@ -180,7 +180,7 @@ function pushinterval!{T}(vect::Vector{DuplexInterval{T}}, int::DuplexInterval{T
    insert!( vect, searchsortedfirst( vect, int ), int ) 
 end
 
-@inline function pushinterval!{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}; rate::Float64=0.95)
+@inline function pushinterval!{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}; rate::Float64=0.99)
    if !haskey( dict, key )
       dict[key] = Vector{DuplexInterval{T}}()
    end

@@ -2,6 +2,7 @@
 using Base.Test
 using Bio.Seq
 using Bio.Intervals
+using SuffixArrays
 
 importall Bio.Intervals
 
@@ -9,7 +10,10 @@ include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/duplex.jl")
 include("../src/intervals.jl")
+include("../src/traverse.jl")
 include("../src/trie.jl")
+include("../src/suffix.jl")
+
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -390,6 +394,8 @@ end
 
 @testset "Duplex Intervals Stitching" begin
 
+   # test duplex strings function
+
    c = DuplexCollection{String}()
    dup = RNADuplex()
    push!(dup, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,GC_PAIR])
@@ -403,6 +409,8 @@ end
    @test !isnull( stitch(i, i2, 3, 3) )
    @test !isnull( stitch(i2, i, 3, 3) )   
 
+   # test stitching with bulges
+   # test negative stitching cases
 end
 
 @testset "RNA Trie Building" begin
@@ -447,17 +455,17 @@ end
 end
 
 @testset "Duplex Trie Building and Traversal" begin
-#=
+
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
    @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
    val = traverse( trie, 8:100, bulge_max=1 )
    @test length(val) == 1
-   firstval = first(val)
-   @test length(firstval.metadata) == 1
-   duplexint = firstval.metadata[1]
-   @test firstval.first == 1 && firstval.last == 25
-   @test duplexint.first.first == 1 && duplexint.first.last == 13
-   @test duplexint.last.first == 24 && duplexint.last.last  == 37
-=#
+   # test fwd and rev sequences for intermolecular constructor
+   # test vector of sequences constructor
+
+   # test larger scale example hnRNP D and genome offsets
+
+   # test recursive stitching
+   # test iterval collection and filtering
 end

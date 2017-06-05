@@ -5,7 +5,7 @@ os:
 julia:
   - 0.5
 install:
-  - julia -e 'Pkg.add("Bio")'
+  - julia -e 'Pkg.add("Bio"); Pkg.add("SuffixArrays"); Pkg.checkout("SuffixArrays")'
 notifications:
   email: false
 script:
