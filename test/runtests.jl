@@ -2,6 +2,7 @@
 using Base.Test
 using Bio.Seq
 using Bio.Intervals
+using SuffixArrays
 
 importall Bio.Intervals
 

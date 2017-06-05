@@ -1,5 +1,3 @@
-using SuffixArrays
-using Bio.Seq
 
 immutable RNAGenomeCoord
    name::String

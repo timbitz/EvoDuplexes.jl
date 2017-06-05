@@ -1,6 +1,6 @@
 #__precompile__()
 
-module RNATries
+module RNASuffixes
 
 using Bio
 using Bio.Seq
