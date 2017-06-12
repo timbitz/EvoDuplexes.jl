@@ -88,12 +88,12 @@ type DuplexSuffix{A,I,K}
       return new( fwd, rev, depth )
    end
 
-   function DuplexTrie( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, depth::Int;
+   function DuplexSuffix( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, depth::Int;
                         left_seqname::String="chr", right_seqname::String="chr",
                         left_genomepos::Int=1, right_genomepos::Int=1,
                         left_strand::Bool=true, right_strand::Bool=true )
-      fwd = RNASuffix{A,I,K}( left, depth, seqname=left_seqname, genomepos=left_genomepos, strand=left_strand )
-      rev = RNASuffix{A,I,K}( right, depth, seqname=right_seqname, genomepos=right_genomepos, strand=right_strand )
+      fwd = RNASuffix{A,I,K}( left,  depth, convert(K, 1), seqname=left_seqname, genomepos=left_genomepos, strand=left_strand )
+      rev = RNASuffix{A,I,K}( right, depth, convert(K, 2), seqname=right_seqname, genomepos=right_genomepos, strand=right_strand )
       return new( fwd, rev, depth )
    end
 end
