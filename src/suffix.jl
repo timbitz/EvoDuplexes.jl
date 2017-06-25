@@ -6,7 +6,7 @@ immutable RNAGenomeCoord
    length::Int
 end
 
-type RNASuffix{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
+type RNASuffixArray{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
    sai::Vector{I}
    meta::Vector{K}
    depth::Vector{Vector{Bio.Seq.Nucleotide}}
@@ -14,7 +14,7 @@ type RNASuffix{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
    coords::Vector{RNAGenomeCoord}
    length::Int
 
-   function RNASuffix( seq::Bio.Seq.Sequence, len::Int, metadata::K=one(K);
+   function RNASuffixArray( seq::Bio.Seq.Sequence, len::Int, metadata::K=one(K);
                        seqname::String="chr", genomepos::Int=1, strand::Bool=true )
       sai = SuffixArrays.suffixsort( String(seq) ).index + one(I)
       meta = K[metadata for i in 1:length(sai)]
@@ -28,11 +28,11 @@ type RNASuffix{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
    end
 end
 
-function Base.push!{A,I,K}( suf::RNASuffix{A,I,K}, seq::Bio.Seq.Sequence )
+function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, seq::Bio.Seq.Sequence )
 
    # suffix sort
    const len = length(suf.seqs)
-   const suftmp  = RNASuffix{A,I,K}( seq, suf.length, convert(K, len+1) )
+   const suftmp  = RNASuffixArray{A,I,K}( seq, suf.length, convert(K, len+1) )
 
    # initialize
    const newsai    = zeros(I, length(suf.sai) + length(suftmp.sai) )
@@ -76,24 +76,24 @@ function Base.push!{A,I,K}( suf::RNASuffix{A,I,K}, seq::Bio.Seq.Sequence )
    suf
 end
 
-type DuplexSuffix{A,I,K}
-   fwd::RNASuffix{A,I,K}
-   rev::RNASuffix{A,I,K}
+type RNADuplexArray{A,I,K}
+   fwd::RNASuffixArray{A,I,K}
+   rev::RNASuffixArray{A,I,K}
    depth::Int
 
-   function DuplexSuffix( seq::Bio.Seq.Sequence, depth::Int;
+   function RNADuplexArray( seq::Bio.Seq.Sequence, depth::Int;
                           seqname::String="chr", genomepos::Int=1, strand::Bool=true )
-      fwd = RNASuffix{A,I,K}( seq, depth, seqname=seqname, genomepos=genomepos, strand=strand )
-      rev = RNASuffix{A,I,K}( reverse(seq), depth, seqname=seqname, genomepos=genomepos, strand=strand )
+      fwd = RNASuffixArray{A,I,K}( seq, depth, seqname=seqname, genomepos=genomepos, strand=strand )
+      rev = RNASuffixArray{A,I,K}( reverse(seq), depth, seqname=seqname, genomepos=genomepos, strand=strand )
       return new( fwd, rev, depth )
    end
 
-   function DuplexSuffix( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, depth::Int;
+   function RNADuplexArray( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, depth::Int;
                         left_seqname::String="chr", right_seqname::String="chr",
                         left_genomepos::Int=1, right_genomepos::Int=1,
                         left_strand::Bool=true, right_strand::Bool=true )
-      fwd = RNASuffix{A,I,K}( left,  depth, convert(K, 1), seqname=left_seqname, genomepos=left_genomepos, strand=left_strand )
-      rev = RNASuffix{A,I,K}( right, depth, convert(K, 2), seqname=right_seqname, genomepos=right_genomepos, strand=right_strand )
+      fwd = RNASuffixArray{A,I,K}( left,  depth, convert(K, 1), seqname=left_seqname, genomepos=left_genomepos, strand=left_strand )
+      rev = RNASuffixArray{A,I,K}( right, depth, convert(K, 2), seqname=right_seqname, genomepos=right_genomepos, strand=right_strand )
       return new( fwd, rev, depth )
    end
 end
@@ -102,7 +102,8 @@ function positions{N <: Bio.Seq.Nucleotide}( nucs::Vector{N}, lo::Int, hi::Int, 
    map( x->searchsorted(nucs, x, lo, hi, Base.Order.ForwardOrdering()), alpha ) 
 end
 
-function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
+
+function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange;
                           bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int),
                           raw_output::String="", minfold::Float64=-5.0)
 
@@ -110,7 +111,7 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
    const bulges_idx     = index(A, gaps)
    const mismatches_idx = index(A, mismatches)
 
-   const alpha      = alphabet(A)
+   const alpha          = alphabet(A)
 
    const duplex         = RNADuplex()
    const deprange       = 1:dsa.depth
@@ -129,7 +130,8 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
    @inline function _traverse( fdepth::Int64, rdepth::Int64,
                                frange::UnitRange{Int}, rrange::UnitRange{Int},
                                bulge_n::Int64, mismatch_n::Int64,
-                               from_bulge::Bool, bulge_left::Bool )
+                               from_bulge::Bool, bulge_left::Bool,
+                               from_mismatch::Bool )
 
       # obtain position range for current depth
       if fdepth < dsa.fwd.length && rdepth < dsa.rev.length
@@ -167,12 +169,13 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
             _traverse(  fdepth + 1, rdepth + 1,
                         franges[l], rranges[r],
                         bulge_n, mismatch_n,
-                        false, false )
+                        false, false, false )
          end
       end
 
       # recurse through bulges
-      if bulge_n < bulge_max && fdepth > 1 && rdepth > 1 && duplex.energy[end] < energy_max
+      if bulge_n < bulge_max && (bulge_n >= 1 ? from_bulge : !from_bulge) &&
+         fdepth > 1 && rdepth > 1 && duplex.energy[end] < energy_max
          for (l,r) in bulges_idx
             if l == 0
                (from_bulge && !bulge_left) && continue # only bulge one way
@@ -181,7 +184,7 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
                   _traverse( fdepth, rdepth + 1,
                              frange, rranges[r],
                              bulge_n + 1, mismatch_n,
-                             true, true )
+                             true, true, from_mismatch )
                end
             elseif r == 0
                (from_bulge && bulge_left) && continue
@@ -190,14 +193,16 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
                    _traverse( fdepth + 1, rdepth,
                               franges[l], rrange,
                               bulge_n + 1, mismatch_n,
-                              true, false )
+                              true, false, from_mismatch )
                end
             end
          end
       end
 
       # recurse through mismatches
-      if mismatch_n < mismatch_max && fdepth > 1 && rdepth > 1 &&
+      if mismatch_n < mismatch_max && 
+         (mismatch_n >= 1 ? from_mismatch : !from_mismatch) &&
+         fdepth > 1 && rdepth > 1 &&
          !from_bulge && duplex.energy[end] < energy_max &&
          fdepth < dsa.fwd.length && rdepth < dsa.rev.length
          for (l,r) in mismatches_idx
@@ -206,7 +211,7 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
                 _traverse( fdepth + 1, rdepth + 1,
                            franges[l], rranges[r],
                            bulge_n, mismatch_n + 1,
-                           from_bulge, bulge_left )
+                           from_bulge, bulge_left, true )
             end
          end
       end
@@ -218,7 +223,7 @@ function traverse{A,I,K}( dsa::DuplexSuffix{A,I,K}, foldrange::UnitRange;
    _traverse( one(Int), one(Int),
               1:length(dsa.fwd.sai), 1:length(dsa.rev.sai),
               zero(Int), zero(Int),
-              false, false )
+              false, false, false )
 
    if output
       close(stream)

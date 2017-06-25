@@ -19,9 +19,9 @@ include("trie.jl")
 include("suffix.jl")
 
 export RNATrie,
-       RNASuffix,
        DuplexTrie,
-       DuplexSuffix,
+       RNASuffixArray,
+       RNADuplexArray,
        DuplexCollection,
        traverse,
        stitch
