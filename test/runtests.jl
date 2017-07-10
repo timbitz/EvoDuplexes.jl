@@ -13,7 +13,7 @@ include("../src/intervals.jl")
 include("../src/traverse.jl")
 include("../src/trie.jl")
 include("../src/suffix.jl")
-
+include("../src/mafreader.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -461,6 +461,13 @@ end
    @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
    val = traverse( trie, 8:100, bulge_max=1 )
    @test length(val) == 1
+end
+
+@testset "RNASuffixArray Building and Traversal" begin
+   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
+   rsa = DuplexTrie{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
+   @time length(traverse( rsa, 8:100, bulge_max=0 ))
+   @time traverse( trie, 8:100, bulge_max=1 )
    # test fwd and rev sequences for intermolecular constructor
    # test vector of sequences constructor
 
@@ -469,3 +476,136 @@ end
    # test recursive stitching
    # test iterval collection and filtering
 end
+
+@testset "MAF Parser" begin
+   mafheader = """
+##maf version=1 scoring=tba.v8 
+ # tba.v8 (((human chimp) baboon) (mouse rat)) 
+ # multiz.v7
+ # maf_project.v5 _tba_right.maf3 mouse _tba_C
+ # single_cov2.v4 single_cov2 /dev/stdin
+"""
+   maflines = """
+a score=23262.0
+s hg16.chr7    27578828 38 + 158545518 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+s panTro1.chr6 28741140 38 + 161576975 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+s baboon         116834 38 +   4622798 AAA-GGGAATGTTAACCAAATGA---GTTGTCTCTTATGGTG
+s mm4.chr6     53215344 38 + 151104725 -AATGGGAATGTTAAGCAAACGA---ATTGTCTCTCAGTGTG
+s rn3.chr4     81344243 40 + 187371129 -AA-GGGGATGCTAAGCCAATGAGTTGTTGTCTCTCAATGTG
+
+a score=5062.0
+s hg16.chr7    27699739 6 + 158545518 TAAAGA
+s panTro1.chr6 28862317 6 + 161576975 TAAAGA
+s baboon         241163 6 +   4622798 TAAAGA
+s mm4.chr6     53303881 6 + 151104725 TAAAGA
+s rn3.chr4     81444246 6 + 187371129 taagga
+
+a score=6636.0
+s hg16.chr7    27707221 13 + 158545518 gcagctgaaaaca
+s panTro1.chr6 28869787 13 + 161576975 gcagctgaaaaca
+s baboon         249182 13 +   4622798 gcagctgaaaaca
+s mm4.chr6     53310102 13 + 151104725 ACAGCTGAAAATA
+"""
+   
+   maffile = mafheader * "\n" * maflines
+
+   # Single buffer:
+
+   headreader = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   noheadreader = MAFReader(BufferedInputStream(IOBuffer(maflines)))
+
+   discard_header!(headreader)
+   @test headreader.stream.buffer[1:10] == noheadreader.stream.buffer[1:10]   
+
+   headreader = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+
+   while !done(headreader)
+      headrec   = MAFRecord()
+      noheadrec = MAFRecord()
+      read!(headreader, headrec)
+      read!(noheadreader, noheadrec)
+      @test length(noheadrec) == length(headrec)
+      @test length(noheadrec) > 1
+      for i in 1:length(headrec)
+         @test headrec[i] == noheadrec[i]
+      end
+   end
+   @test done(headreader)
+   @test done(noheadreader)
+
+   # Multi buffer
+
+   longreader = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   shortreader = MAFReader(BufferedInputStream(IOBuffer(maffile), 512))
+   
+   while !done(longreader) 
+      longrec  = MAFRecord()
+      shortrec = MAFRecord()
+      read!(longreader, longrec)
+      read!(shortreader, shortrec)
+      @test length(shortrec) == length(longrec)
+      @test length(shortrec) > 1
+      for i in 1:length(shortrec)
+         @test shortrec[i] == longrec[i]
+      end
+   end
+   @test done(shortreader)
+   @test done(longreader)
+
+   # Bad Records
+   maffile = """
+##maf version=1 scoring=roast.v3.3
+a score=781.000000
+s hg19.chr22                16092278 1 +  51304566 C
+s panTro4.chr22             14470458 1 +  49737984 C
+s nomLeu3.chrUn_GL397501_2   1216368 1 -   1485088 C
+s chlSab1.chrUn_KE147573       66869 1 -     85383 C
+s monDom5.chr4              96780965 1 - 435153693 T
+s danRer7.chr3                323838 1 -  63268876 C
+s petMar2.GL501154             43910 1 -     71231 t
+
+a score=-50707.000000
+s hg19.chr22                     16092279 32 +  51304566 AGTCCCCAGGTGGT------CATGACACCTCAATTGGA
+s panTro4.chr22                  14470459 32 +  49737984 AGTCCCCAGGTGGT------CATGACACCTCAATTGGA
+s nomLeu3.chrUn_GL397501_2        1216369 32 -   1485088 AGTCCCCAGGTGGT------CATGACACTTCAACTGGA
+s chlSab1.chrUn_KE147573            66870 32 -     85383 AGTCCCCAGGTGAT------CATGACACCTTAACTGGA
+s monDom5.chr4                   96780966 24 - 435153693 TGACTCCAGCCAGA------GACGGAGCCC--------
+s falChe1.KB397375                  11884 29 +     36355 GACCCTTGTGAAAA------CATGAGGGCTGTGAA---
+s falPer1.KB390849                  40484 13 +     49439 AGCCCTTGTCTGA-------------------------
+s ficAlb2.chrUn_KE165385           131290 31 -    141484 -cctccccgagtat------cCTGCGACCCCAGATCGA
+s geoFor1.JH741012                   5677 32 -     10893 GGGCCCTTTGGGAA------GAGGACACTGCGACTGGA
+s taeGut2.chr26_EQ833276_random      8281 32 -     85973 AGCCCCTCAGCTGT------CCCCACACCTCTCCTGCA
+s pseHum1.KB221494                  45158 24 +     77128 gaccccacaatgac-------------cctcggttga-
+s galGal4.chrUn_JH375878              275 32 -      4229 AGCCCAGTggggga------ccccggagccaaagggga
+s pelSin1.JH208549                  94224 38 +    588315 GGCCCCAGGGCCAAATCCGTCCCTGGGTCCATATTCAA
+s danRer7.chr3                     323839 32 -  63268876 ATTATCCAACTAGA------CTTGGCTGTTTAGAAGAC
+s petMar2.GL501154                  43911 30 -     71231 --agttcacgtgag------ctctacaactcaggtgaa
+"""
+
+   noshort = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   noshort.minlen = 5
+   noshortrec = MAFRecord()
+   read!(noshort, noshortrec)
+   @test done(noshort)
+   @test length(noshortrec) == 15
+
+   noweak = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   noweak.minscore = 0.0
+   noweakrec = MAFRecord()
+   read!(noweak, noweakrec)
+   @test !done(noweak)
+   @test length(noweakrec) == 7
+   res = read!(noweak, MAFRecord())
+   @test done(noweak)
+   @test length(res) == 0
+
+   #Trailing newline
+   withnew = MAFReader(BufferedInputStream(IOBuffer(maffile * "\n")))
+   withnew.minlen = 5
+   withnewrec = MAFRecord()
+   read!(withnew, withnewrec)   
+   @test done(withnew)
+   @test length(withnewrec) == 15
+
+end
+
