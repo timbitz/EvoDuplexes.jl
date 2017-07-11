@@ -15,9 +15,9 @@ type RNASuffixArray{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
    length::Int
 
    function RNASuffixArray( seq::Bio.Seq.Sequence, len::Int, metadata::K=one(K);
-                       seqname::String="chr", genomepos::Int=1, strand::Bool=true )
-      sai = SuffixArrays.suffixsort( String(seq) ).index + one(I)
-      meta = K[metadata for i in 1:length(sai)]
+                            seqname::String="chr", genomepos::Int=1, strand::Bool=true )
+      sai   = SuffixArrays.suffixsort( String(seq) ).index + one(I)
+      meta  = K[metadata for i in 1:length(sai)]
       depth = Vector{Vector{Bio.Seq.Nucleotide}}(len)
       for i in 1:len
          depth[i] = map(x->x+i-1 > length(seq) ? gap(A) : seq[x+i-1], sai)
@@ -27,6 +27,7 @@ type RNASuffixArray{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
       new( sai, meta, depth, seqs, coords, len )
    end
 end
+
 
 function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, seq::Bio.Seq.Sequence )
 
@@ -82,19 +83,26 @@ type RNADuplexArray{A,I,K}
    depth::Int
 
    function RNADuplexArray( seq::Bio.Seq.Sequence, depth::Int;
-                          seqname::String="chr", genomepos::Int=1, strand::Bool=true )
+                            seqname::String="chr", genomepos::Int=1, strand::Bool=true )
       fwd = RNASuffixArray{A,I,K}( seq, depth, seqname=seqname, genomepos=genomepos, strand=strand )
       rev = RNASuffixArray{A,I,K}( reverse(seq), depth, seqname=seqname, genomepos=genomepos, strand=strand )
       return new( fwd, rev, depth )
    end
 
    function RNADuplexArray( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, depth::Int;
-                        left_seqname::String="chr", right_seqname::String="chr",
-                        left_genomepos::Int=1, right_genomepos::Int=1,
-                        left_strand::Bool=true, right_strand::Bool=true )
-      fwd = RNASuffixArray{A,I,K}( left,  depth, convert(K, 1), seqname=left_seqname, genomepos=left_genomepos, strand=left_strand )
-      rev = RNASuffixArray{A,I,K}( right, depth, convert(K, 2), seqname=right_seqname, genomepos=right_genomepos, strand=right_strand )
+                            left_seqname::String="chr", right_seqname::String="chr",
+                            left_genomepos::Int=1, right_genomepos::Int=1,
+                            left_strand::Bool=true, right_strand::Bool=true )
+      fwd = RNASuffixArray{A,I,K}( left,  depth, one(K), seqname=left_seqname, genomepos=left_genomepos, strand=left_strand )
+      rev = RNASuffixArray{A,I,K}( reverse(right), depth, one(K), seqname=right_seqname, genomepos=right_genomepos, strand=right_strand )
       return new( fwd, rev, depth )
+   end
+
+   function RNADuplexArray( seqs::Vector{Bio.Seq.Sequence}, depth::Int;
+                            seqnames::Vector{String}=String["chr" for i in 1:length(seqs)],
+                            genomepos::Vector{Int}=ones(Int, length(seqs)),
+                            strands::Vector{Bool}=trues(length(seqs)))
+      # TODO
    end
 end
 
@@ -153,9 +161,9 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange;
                for (ix,i) in enumerate(dsa.fwd.sai[franges[l]]), (jx,j) in enumerate(dsa.rev.sai[rranges[r]])
                      const fwd_meta = dsa.fwd.meta[ix]
                      const rev_meta = dsa.rev.meta[jx]
-                     const len = length( dsa.rev.seqs[ fwd_meta ] )
+                     const len = length( dsa.rev.seqs[ rev_meta ] )
                      const k = revoffset( j, len )
-                     fwd_meta == rev_meta && !((k - i) + 1 in foldrange) && continue
+                     fwd_meta == rev_meta && !(((k-rdepth+1) - (i+fdepth-1)) + 1 in foldrange) && continue
                      const newdup = deepcopy(duplex)
                      const fwd_entry = dsa.fwd.coords[ fwd_meta ]
                      const rev_entry = dsa.rev.coords[ rev_meta ]

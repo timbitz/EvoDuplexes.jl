@@ -414,7 +414,9 @@ end
 end
 
 @testset "RNA Trie Building" begin
-   
+
+   # Vestigial tests for a deprecated data structure
+
    A = Bio.Seq.DNAAlphabet{2}
    trie = RNATrie{A,String}( 1:3 )
    @test trie.range == 1:3
@@ -451,23 +453,27 @@ end
    end 
    @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
    @test nodecount( trie ) == 9
-
 end
 
 @testset "Duplex Trie Building and Traversal" begin
+
+   # Duplex Trie deprecated...
 
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
    @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
    val = traverse( trie, 8:100, bulge_max=1 )
    @test length(val) == 1
+
 end
 
 @testset "RNASuffixArray Building and Traversal" begin
+
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    rsa = DuplexTrie{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
-   @time length(traverse( rsa, 8:100, bulge_max=0 ))
-   @time traverse( trie, 8:100, bulge_max=1 )
+   @time length(traverse( rsa, 8:50, bulge_max=0 )) == 0
+   @time length(traverse( rsa, 8:50, bulge_max=1 )) == 1
+
    # test fwd and rev sequences for intermolecular constructor
    # test vector of sequences constructor
 
