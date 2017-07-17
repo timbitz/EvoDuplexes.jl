@@ -3,6 +3,7 @@ using Base.Test
 using Bio.Seq
 using Bio.Intervals
 using SuffixArrays
+using Gadfly 
 
 importall Bio.Intervals
 
@@ -14,6 +15,8 @@ include("../src/traverse.jl")
 include("../src/trie.jl")
 include("../src/suffix.jl")
 include("../src/mafreader.jl")
+include("../src/newick.jl")
+include("../src/io.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -461,8 +464,8 @@ end
 
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
-   @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
-   val = traverse( trie, 8:100, bulge_max=1 )
+   @test length(traverse( trie, 8:50, bulge_max=0 )) == 0
+   val = traverse( trie, 8:50, bulge_max=1 )
    @test length(val) == 1
 
 end
@@ -470,11 +473,16 @@ end
 @testset "RNASuffixArray Building and Traversal" begin
 
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
-   rsa = DuplexTrie{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
-   @time length(traverse( rsa, 8:50, bulge_max=0 )) == 0
-   @time length(traverse( rsa, 8:50, bulge_max=1 )) == 1
-
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
+   @test length(collect(traverse( rda, 12:50, bulge_max=0 ), minenergy=-15.0)) == 0
+   @test length(collect(traverse( rda, 12:50, bulge_max=1 ), minenergy=-15.0)) == 1
+   @test length(traverse( rda, 12:50, bulge_max=1 )) == 1
+   res = shift!(collect(traverse( rda, 12:50, bulge_max=1 )))
+   @test first(res.first) == 1 && last(res.first) == 13
+   @test first(res.last) == 24 && last(res.last) == length(seq)
+      
    # test fwd and rev sequences for intermolecular constructor
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, seq, 25 )
    # test vector of sequences constructor
 
    # test larger scale example hnRNP D and genome offsets
@@ -613,5 +621,33 @@ s petMar2.GL501154                  43911 30 -     71231 --agttcacgtgag------ctc
    @test done(withnew)
    @test length(withnewrec) == 15
 
+   #Test MAFRecord gap deletion
+   for i in 1:length(withnewrec)
+      @test length(withnewrec[i].sequence) == length("AGTCCCCAGGTGGT------CATGACACCTCAATTGGA")
+   end
+   deletegaps!(withnewrec)
+   for i in 1:length(withnewrec)
+      @test length(withnewrec[i].sequence) == length("AGTCCCCAGGTGGTCATGACACCTCAATTGGA")
+   end
 end
 
+@testset "Newick tree building and Felsenstein's algorithm" begin
+   tree = parsenewick("(((((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.009411):0.009942,
+                            ponAbe2:0.018342):0.014256,rheMac2:0.036199):0.021496,papHam1:0.04);")
+   names = collect(tree.root)
+   expnames = ["hg19", "panTro2", "gorGor1", "ponAbe2", "rheMac2", "papHam1"]
+   @test length(names) == length(expnames) == length(tree.order)
+   for i in 1:length(names)
+      @test names[i] == expnames[i] == tree.order[i]
+   end
+   # Test rate matrix -> probability
+   Q = [-3.0 1.0 1.0 1.0
+        1.0 -3.0 1.0 1.0
+        1.0 1.0 -3.0 1.0
+        1.0 1.0 1.0 -3.0]
+   set_prob_mat( tree, Q )
+   hg19_node = tree.root.left.value.left.value.left.value.left.value.left.value
+   @test hg19_node.label == "hg19"
+   @test hg19_node.prob == expm(Q*0.006591)
+   
+end

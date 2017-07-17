@@ -259,3 +259,21 @@ const MAFRecord = Vector{MAFSpecies}
     end
 end
 
+function deletegaps!( mblock::MAFRecord )
+   str = string(mblock[1].sequence)
+   ind = search(str, r"-+")
+   if length(ind) > 0
+      deletegaps!( mblock, ind )
+      deletegaps!( mblock )
+      return
+   else
+      return
+   end
+end
+
+function deletegaps!( mblock::MAFRecord, ind::UnitRange )
+   for i in mblock
+      deleteat!( i.sequence, ind )
+   end
+end
+
