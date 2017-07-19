@@ -1,9 +1,11 @@
 
+abstract AbstractDuplex
+
 # RNADuplex objects represent the path of a duplex as a
 # Vector of NucleotidePair's.  Type of the NucleotidePair
 # thus defines the operations: Pair, Mismatch, Bulge
 # and interior loops are combinations of Mismatches and Bulges
-type RNADuplex
+type RNADuplex <: AbstractDuplex
    path::Vector{NucleotidePair} # sequence and structure path
    energy::Vector{Float64} # gibbs free energy from nearest-neighbor
    length::Int # shortest length

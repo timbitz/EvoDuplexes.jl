@@ -3,7 +3,7 @@
 type DuplexInterval{T}
    first::Interval{T}  # fwd helical region 
    last::Interval{T}   # rev helical region
-   duplex::RNADuplex   # rna duplex formed
+   duplex::AbstractDuplex   # rna duplex formed
 end
 
 const ZERO_DUPLEX_INTERVAL = DuplexInterval(Interval("", 0, 0), Interval("", 0, 0), RNADuplex())

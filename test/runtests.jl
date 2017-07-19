@@ -4,6 +4,15 @@ using Bio.Seq
 using Bio.Intervals
 using SuffixArrays
 using Gadfly 
+using Automa
+
+using Bio.Seq
+using BufferedStreams
+using Libz
+
+import Automa
+import Automa.RegExp: @re_str
+import Compat: take!
 
 importall Bio.Intervals
 
@@ -13,9 +22,10 @@ include("../src/duplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
 include("../src/trie.jl")
-include("../src/suffix.jl")
 include("../src/mafreader.jl")
 include("../src/newick.jl")
+include("../src/evoduplex.jl")
+include("../src/suffix.jl")
 include("../src/io.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
@@ -470,27 +480,6 @@ end
 
 end
 
-@testset "RNASuffixArray Building and Traversal" begin
-
-   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
-   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
-   @test length(collect(traverse( rda, 12:50, bulge_max=0 ), minenergy=-15.0)) == 0
-   @test length(collect(traverse( rda, 12:50, bulge_max=1 ), minenergy=-15.0)) == 1
-   @test length(traverse( rda, 12:50, bulge_max=1 )) == 1
-   res = shift!(collect(traverse( rda, 12:50, bulge_max=1 )))
-   @test first(res.first) == 1 && last(res.first) == 13
-   @test first(res.last) == 24 && last(res.last) == length(seq)
-      
-   # test fwd and rev sequences for intermolecular constructor
-   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, seq, 25 )
-   # test vector of sequences constructor
-
-   # test larger scale example hnRNP D and genome offsets
-
-   # test recursive stitching
-   # test iterval collection and filtering
-end
-
 @testset "MAF Parser" begin
    mafheader = """
 ##maf version=1 scoring=tba.v8 
@@ -503,21 +492,21 @@ end
 a score=23262.0
 s hg16.chr7    27578828 38 + 158545518 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
 s panTro1.chr6 28741140 38 + 161576975 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
-s baboon         116834 38 +   4622798 AAA-GGGAATGTTAACCAAATGA---GTTGTCTCTTATGGTG
+s baboon.chr1    116834 38 +   4622798 AAA-GGGAATGTTAACCAAATGA---GTTGTCTCTTATGGTG
 s mm4.chr6     53215344 38 + 151104725 -AATGGGAATGTTAAGCAAACGA---ATTGTCTCTCAGTGTG
 s rn3.chr4     81344243 40 + 187371129 -AA-GGGGATGCTAAGCCAATGAGTTGTTGTCTCTCAATGTG
 
 a score=5062.0
 s hg16.chr7    27699739 6 + 158545518 TAAAGA
 s panTro1.chr6 28862317 6 + 161576975 TAAAGA
-s baboon         241163 6 +   4622798 TAAAGA
+s baboon.chr1    241163 6 +   4622798 TAAAGA
 s mm4.chr6     53303881 6 + 151104725 TAAAGA
 s rn3.chr4     81444246 6 + 187371129 taagga
 
 a score=6636.0
 s hg16.chr7    27707221 13 + 158545518 gcagctgaaaaca
 s panTro1.chr6 28869787 13 + 161576975 gcagctgaaaaca
-s baboon         249182 13 +   4622798 gcagctgaaaaca
+s baboon.chr1    249182 13 +   4622798 gcagctgaaaaca
 s mm4.chr6     53310102 13 + 151104725 ACAGCTGAAAATA
 """
    
@@ -649,5 +638,106 @@ end
    hg19_node = tree.root.left.value.left.value.left.value.left.value.left.value
    @test hg19_node.label == "hg19"
    @test hg19_node.prob == expm(Q*0.006591)
+
+   # Test likelihood function
+   smtree = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.009411);")
+   set_prob_mat( smtree, Q )
    
 end
+
+@testset "RNADuplexArray Building and Traversal" begin
+
+   # test depth and sai composition
+   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
+   rsuf = RNASuffixArray{DNAAlphabet{2},UInt8,UInt8}( seq, 10 )
+   for i in 1:length(rsuf.sai)-1
+      @test <=( rsuf.depth, i, rsuf.depth, i+1 )
+   end
+
+   push!( rsuf, reverse(seq) )
+   for i in 1:length(rsuf.sai)-1
+      @test <=( rsuf.depth, i, rsuf.depth, i+1 )
+   end
+
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
+   @test length(collect(traverse( rda, 12:50, bulge_max=0 ), minenergy=-15.0)) == 0
+   @test length(collect(traverse( rda, 12:50, bulge_max=1 ), minenergy=-15.0)) == 1
+   @test length(traverse( rda, 12:50, bulge_max=1 )) == 1
+   res = shift!(collect(traverse( rda, 12:50, bulge_max=1 )))
+   @test first(res.first) == 1 && last(res.first) == 13
+   @test first(res.last) == 24 && last(res.last) == length(seq)
+
+   # TODO
+   # test fwd and rev sequences for intermolecular constructor
+   rda  = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, seq, 25 )
+   res  = collect(traverse( rda, bulge_max=1 ), minenergy=-15.0)
+
+   # test push! additional sequences
+   prda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
+   push!( prda, seq )
+   pres = collect(traverse( prda, bulge_max=1 ), minenergy=-15.0)
+
+   # test vector constructor
+
+   # test larger scale example hnRNP D and genome offsets
+
+   # test recursive stitching
+   # test iterval collection and filtering
+
+end
+
+@testset "PhyloDuplexes" begin
+      maffile = """
+##maf version=1 scoring=roast.v3.3
+a score=-50707.000000
+s hg19.chr22                     16092279 32 +  51304566 AAATGATGCCGCAGGGG------GGGGGGTGCGGCAATCATTT
+s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------GGGGGGTGCGGCAATCATTT
+""" 
+   mafread = MAFReader(BufferedInputStream(IOBuffer(maffile * "\n")))
+   mafrec = MAFRecord()
+   read!(mafread, mafrec)
+   @test done(mafread)
+   @test length(mafrec) == 2
+
+   deletegaps!(mafrec)
+   tree = parsenewick("(hg19:0.006591,panTro4:0.006639);")
+   
+   # correct match of tree species and maf file
+   phylosuf = RNASuffixArray{DNAAlphabet{4}, UInt16, UInt8}( mafrec, tree, 10 )
+   @test phylosuf.depth == phylosuf.species[1]
+   @test length(phylosuf.species) == 1
+ 
+   # missing species end of tree from maf
+   tree = parsenewick("((hg19:0.006591,panTro4:0.006639):0.002184,gorGor1:0.009411);")
+   phylosuf = RNASuffixArray{DNAAlphabet{4}, UInt16, UInt8}( mafrec, tree, 10 )
+   @test phylosuf.depth == phylosuf.species[1]
+   @test phylosuf.depth != phylosuf.species[2]
+   @test length(phylosuf.species) == 2
+
+   # missing species middle of tree from maf
+   mafrec[2].name = "gorGor1"  
+   tree = parsenewick("((hg19:0.006591,panTro4:0.006639):0.002184,gorGor1:0.009411);")
+   phylosuf = RNASuffixArray{DNAAlphabet{4}, UInt16, UInt8}( mafrec, tree, 10 )
+   @test phylosuf.depth != phylosuf.species[1]
+   @test phylosuf.depth == phylosuf.species[2]
+   @test length(phylosuf.species) == 2
+
+   # compare to single seq
+   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 10 )
+   fwd_dep = rda.fwd.depth
+   @test fwd_dep == phylosuf.depth
+
+   # test push! MAF record
+   push!( phylosuf, mafrec, tree )
+   @test length(phylosuf.depth[1]) == length(phylosuf.species[2][1])
+   for i in 1:length(phylosuf.sai)-1
+      @test <=( phylosuf.depth, i, phylosuf.depth, i+1 )
+      @test <=( phylosuf.species[2], i, phylosuf.species[2], i+1 )
+   end 
+      
+   # test build RNADuplexArray from MAF file...
+    
+
+end
+

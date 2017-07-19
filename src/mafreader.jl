@@ -1,14 +1,7 @@
 # Code based on Automa.jl multi-line 'FASTA' example:
 # https://github.com/BioJulia/Automa.jl/blob/master/example/fasta.jl 
 
-import Automa
-import Automa.RegExp: @re_str
-import Compat: take!
 const re = Automa.RegExp
-
-using Bio.Seq
-using BufferedStreams
-
 
 # Create a machine of MAF
 const record_machine = (function ()
@@ -110,7 +103,8 @@ maf_actions_stream = Dict(
                    len    = parse(Int, size)
                    pscore = parse(Float64, score)
                    if len > reader.minlen && pscore > reader.minscore
-                      push!(record, MAFSpecies(organism, parse(Int, position), strand, DNASequence(sequence)))
+                      org,chr = parsename( organism, reader.keepname )
+                      push!(record.species, MAFSpecies(org, chr, parse(Int, position), strand, DNASequence(sequence)))
                    else
                       bad_record = true
                    end
@@ -128,6 +122,7 @@ maf_actions_stream = Dict(
 # Define a type to store a FASTA record.
 type MAFSpecies
     name::String
+    chr::String
     position::Int
     strand::Bool
     sequence::BioSequence{DNAAlphabet{4}}
@@ -136,6 +131,41 @@ end
 Base.:(==)( a::MAFSpecies, b::MAFSpecies ) = a.name == b.name && a.position == b.position && 
                                              a.strand == b.strand && a.sequence == b.sequence ? true : false
 
+type MAFRecord
+   species::Vector{MAFSpecies}
+
+   MAFRecord() = new(Vector{MAFSpecies}())
+end
+
+Base.endof( maf::MAFRecord ) = endof(maf.species)
+Base.getindex( maf::MAFRecord, ind ) = maf.species[ind]
+
+function Base.reverse!( maf::MAFRecord )
+   for s in maf.species
+      reverse!( s.sequence )
+   end
+end
+
+Base.length( maf::MAFRecord ) = length(maf.species)
+
+
+function deletegaps!( mblock::MAFRecord )
+   str = string(mblock.species[1].sequence)
+   ind = search(str, r"-+")
+   if length(ind) > 0
+      deletegaps!( mblock, ind )
+      deletegaps!( mblock )
+      return
+   else
+      return
+   end
+end
+
+function deletegaps!( mblock::MAFRecord, ind::UnitRange )
+   for i in mblock.species
+      deleteat!( i.sequence, ind )
+   end
+end
 
 type MAFReader{T<:BufferedInputStream}
     stream::T
@@ -144,12 +174,13 @@ type MAFReader{T<:BufferedInputStream}
     linenum::Int
     minlen::Int
     minscore::Float64
+    keepname::Bool
 end
 
-function MAFReader{BS <: BufferedInputStream}(input::BS)
+function MAFReader{BS <: BufferedInputStream}(input::BS, keepname::Bool=false)
     hits_eof = fillbuffer!(input) == 0
     p_eof = hits_eof ? input.available : -1
-    return MAFReader{BS}(input, record_machine.start_state, p_eof, 1, 0, typemin(Float64))
+    return MAFReader{BS}(input, record_machine.start_state, p_eof, 1, 0, typemin(Float64), keepname)
 end
 
 Base.done(reader::MAFReader) = reader.cs <= 0
@@ -176,7 +207,15 @@ function discard_header!(reader::MAFReader)
     reader
 end
 
-const MAFRecord = Vector{MAFSpecies}
+function parsename( name::String, keepname::Bool )
+   if keepname
+      return name,name
+   else
+      spl = split(name, '.')
+      length(spl) < 2 && error("Must have a . in the name if MAFReader( ..., keepname=true )")
+      return convert(String, spl[1]),convert(String, spl[2])
+   end 
+end
 
 @eval function Base.read!(reader::MAFReader, record::MAFRecord)
     cs      = reader.cs
@@ -222,9 +261,10 @@ const MAFRecord = Vector{MAFSpecies}
            continue
         elseif (p == p_eof+1 && data[p_eof] == 10)
            #println("p==p_eof+1 p:$p p_eof:$p_eof cs:$cs \"$(Char(data[p-1]))\" $record")
-           spec = MAFSpecies(organism, parse(Int, position), strand, DNASequence(sequence))
+           organism,chr = parsename(organism, reader.keepname)
+           spec = MAFSpecies(organism, chr, parse(Int, position), strand, DNASequence(sequence))
            if !bad_record && !(record[end] == spec)
-              push!(record, spec)
+              push!(record.species, spec)
            end
            reader.cs = 0
            return record
@@ -257,23 +297,5 @@ const MAFRecord = Vector{MAFSpecies}
         end
 
     end
-end
-
-function deletegaps!( mblock::MAFRecord )
-   str = string(mblock[1].sequence)
-   ind = search(str, r"-+")
-   if length(ind) > 0
-      deletegaps!( mblock, ind )
-      deletegaps!( mblock )
-      return
-   else
-      return
-   end
-end
-
-function deletegaps!( mblock::MAFRecord, ind::UnitRange )
-   for i in mblock
-      deleteat!( i.sequence, ind )
-   end
 end
 
