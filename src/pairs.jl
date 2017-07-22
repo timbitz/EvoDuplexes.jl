@@ -14,8 +14,6 @@ abstract NucleotidePair
 
 bitstype 8 RNAPair <: NucleotidePair
 
-const NA_PAIR = reinterpret(RNAPair, 0b00000000)
-
 const AU_PAIR = reinterpret(RNAPair, 0b00011000)
 const UA_PAIR = reinterpret(RNAPair, 0b10000001)
 const CG_PAIR = reinterpret(RNAPair, 0b00100100)
@@ -48,6 +46,46 @@ const BC_BULGE = reinterpret(RNABulge, 0b00000010)
 const BG_BULGE = reinterpret(RNABulge, 0b00000100)
 const BU_BULGE = reinterpret(RNABulge, 0b00001000)
 
+bitstype 8 InvalidPair <: NucleotidePair
+
+const XX_INVALID = reinterpret(InvalidPair, 0b11111111)
+
+const XA_INVALID = reinterpret(InvalidPair, 0b11110001)
+const XC_INVALID = reinterpret(InvalidPair, 0b11110010)
+const XG_INVALID = reinterpret(InvalidPair, 0b11110100)
+const XU_INVALID = reinterpret(InvalidPair, 0b11111000)
+
+const AX_INVALID = reinterpret(InvalidPair, 0b00011111)
+const CX_INVALID = reinterpret(InvalidPair, 0b00101111)
+const GX_INVALID = reinterpret(InvalidPair, 0b01001111)
+const UX_INVALID = reinterpret(InvalidPair, 0b10001111)
+
+bitstype 8 InvalidBulge <: NucleotidePair
+
+const BX_INVALID = reinterpret(InvalidBulge, 0b00001111)
+const XB_INVALID = reinterpret(InvalidBulge, 0b11110000)
+
+const BULGES = [AB_BULGE, CB_BULGE, 
+                GB_BULGE, UB_BULGE, 
+                BA_BULGE, BC_BULGE, 
+                BG_BULGE, BU_BULGE]
+
+const MISMATCHES = [AA_MISMATCH, AC_MISMATCH, 
+                    AG_MISMATCH, CA_MISMATCH, 
+                    CC_MISMATCH, CU_MISMATCH,
+                    GA_MISMATCH, GG_MISMATCH,
+                    UC_MISMATCH, UU_MISMATCH]
+
+const PAIRS = [AU_PAIR, UA_PAIR,
+               CG_PAIR, GC_PAIR,
+               GU_PAIR, UG_PAIR]
+
+const INVALIDS = [XA_INVALID, XC_INVALID,
+                  XG_INVALID, XU_INVALID,
+                  AX_INVALID, CX_INVALID,
+                  GX_INVALID, UX_INVALID,
+                  XX_INVALID]
+
 Base.convert{NP <: NucleotidePair}(::Type{NP}, x::UInt8) = reinterpret(NP, x)
 Base.convert(::Type{UInt8}, x::NucleotidePair)           = reinterpret(UInt8, x)
 
@@ -77,6 +115,8 @@ end
 function index(x::RNABulge)
    trailing_zeros(reinterpret(UInt8, x)) + 1
 end
+
+isgap( nuc::Bio.Seq.Nucleotide ) = reinterpret(UInt8, nuc) == 0 ? true : false
 
 isbulge(x::RNAPair)     = false
 isbulge(x::RNAMismatch) = false
@@ -129,6 +169,14 @@ function Base.split(x::RNABulge)
    isfiveprime(x) ? trailing_zeros(x_int >> 4) + 1 : trailing_zeros(x_int) + 1
 end
 
+function Base.split(x::InvalidPair)
+   left  = convert(UInt8, x) >> 4
+   lret  = left == 15 ? 15 : trailing_zeros(left) + 1
+   right = convert(UInt8, x) & 0x0F
+   rret  = right == 15 ? 15 : trailing_zeros(right) + 1
+   (lret, rret)
+end
+
 # this function returns the first, or last if flag is true
 # five prime or three prime indexes (1:4) in a path of NucleotidePairs
 function five_three{NP <: NucleotidePair}( path::Vector{NP}, range::UnitRange; 
@@ -162,3 +210,15 @@ function is_purine_pyrimidine(x::RNAPair)
    end
 end
 
+const PAIR_DICT = Dict{Tuple{Int,Int},NucleotidePair}()
+
+for i in [PAIRS; MISMATCHES; INVALIDS]
+   PAIR_DICT[split(i)] = i
+end
+for i in BULGES
+   if isfiveprime(i)
+      PAIR_DICT[(0,split(i))] = i
+   else
+      PAIR_DICT[(split(i),0)] = i
+   end
+end

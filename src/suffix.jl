@@ -225,9 +225,9 @@ type RNADuplexArray{A,I,K}
 
    function RNADuplexArray( maf::MAFRecord, tree::PhyloTree, depth::Int )
       refmaf = maf[1]
-      fwd    = RNASuffixArray{A,I,K}( maf, depth )
+      fwd    = RNASuffixArray{A,I,K}( maf, tree, depth )
       reverse!( maf )
-      rev    = RNASuffixArray{A,I,K}( maf, depth )
+      rev    = RNASuffixArray{A,I,K}( maf, tree, depth )
       seqs   = Bio.Seq.Sequence[refmaf.sequence]
       coords = RNAGenomeCoord[RNAGenomeCoord(refmaf.chr, refmaf.position, refmaf.strand, length(refmaf.sequence))]
       return new( fwd, rev, seqs, coords, depth, true )
@@ -261,7 +261,8 @@ end
 
 function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=1:typemax(Int);
                           bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int),
-                          raw_output::String="", minfold::Float64=-5.0)
+                          raw_output::String="", minfold::Float64=-5.0,
+                          tree::PhyloTree=EMPTY_TREE)
 
    const pairs_idx      = index(A, pairs)
    const bulges_idx     = index(A, gaps)
@@ -306,7 +307,9 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=1:typ
                tab_write( stream, (depth, energy(duplex)))
             end
             if fdepth in deprange && rdepth in deprange && energy(duplex) < minfold
-               for (ix,i) in enumerate(dsa.fwd.sai[franges[l]]), (jx,j) in enumerate(dsa.rev.sai[rranges[r]])
+               @inbounds for ix in franges[l], jx in rranges[r]
+                     const i = dsa.fwd.sai[ix]
+                     const j = dsa.rev.sai[jx]
                      const fwd_entry = dsa.coords[ dsa.fwd.meta[ix] ]
                      const rev_entry = dsa.coords[ dsa.rev.meta[jx] ]
                      const ik = revoffset(i, fwd_entry.length)
@@ -315,15 +318,10 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=1:typ
                      const jfirst,jlast = rev_entry.strand ? (jk-rdepth+1,jk) : (j,j+rdepth-1)
                      const fg = fwd_entry.offset-1
                      const rg = rev_entry.offset-1
-                     fwd_entry.name == rev_entry.name && !((rg+jfirst - fg+ilast) + 1 in foldrange) && continue
-                     if dsa.isphylo
-                        const newdup = EvoDuplex(deepcopy(duplex), tree, dsa, ix, jx)
-                     else
-                        const newdup = deepcopy(duplex)
-                     end
+                     fwd_entry.name == rev_entry.name && !(((rg+jfirst) - (fg+ilast)) + 1 in foldrange) && continue
                      push!( intervals, DuplexInterval( Interval(fwd_entry.name, fg+ifirst, fg+ilast, tochar(fwd_entry.strand), dsa.fwd.meta[ix]),
                                                        Interval(rev_entry.name, rg+jfirst, rg+jlast, tochar(rev_entry.strand), dsa.rev.meta[jx]),
-                                                       newdup ) )
+                                                       dsa.isphylo ? EvoDuplex(duplex, tree, dsa, ix, jx) : deepcopy(duplex) ) )
                end
             end
             _traverse(  fdepth + 1, rdepth + 1,

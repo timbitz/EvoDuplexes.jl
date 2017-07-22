@@ -23,9 +23,10 @@ include("../src/intervals.jl")
 include("../src/traverse.jl")
 include("../src/trie.jl")
 include("../src/mafreader.jl")
+include("../src/gtrmodel.jl")
 include("../src/newick.jl")
-include("../src/evoduplex.jl")
 include("../src/suffix.jl")
+include("../src/evoduplex.jl")
 include("../src/io.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
@@ -152,12 +153,12 @@ const bulge_set  = [AB_BULGE, CB_BULGE, GB_BULGE, UB_BULGE, BA_BULGE, BC_BULGE, 
    @test split(BG_BULGE) == 3
    @test split(BU_BULGE) == 4
 
-   path = [AU_PAIR, CG_PAIR, AB_BULGE]
-   @test five_three(path, 1:3) == (1,4)
-   @test five_three(path, 1:3, last=true) == (1,3)
-   path = [BC_BULGE, CG_PAIR, BA_BULGE]
-   @test five_three(path, 1:3) == (2,2)
-   @test five_three(path, 1:3, last=true) == (2,1)
+   mypath = [AU_PAIR, CG_PAIR, AB_BULGE]
+   @test five_three(mypath, 1:3) == (1,4)
+   @test five_three(mypath, 1:3, last=true) == (1,3)
+   mypath = [BC_BULGE, CG_PAIR, BA_BULGE]
+   @test five_three(mypath, 1:3) == (2,2)
+   @test five_three(mypath, 1:3, last=true) == (2,1)
 
 end
 
@@ -634,15 +635,91 @@ end
         1.0 -3.0 1.0 1.0
         1.0 1.0 -3.0 1.0
         1.0 1.0 1.0 -3.0]
-   set_prob_mat( tree, Q )
+   set_prob_mat!( tree, Q )
    hg19_node = tree.root.left.value.left.value.left.value.left.value.left.value
    @test hg19_node.label == "hg19"
    @test hg19_node.prob == expm(Q*0.006591)
 
    # Test likelihood function
-   smtree = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.009411);")
-   set_prob_mat( smtree, Q )
-   
+   tree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.5);")
+   set_prob_mat!( tree, GTR_SINGLE_Q )
+
+   #=
+   hg19 length=0.006591
+   A->G 0.0125902
+   C->G 0.00378768
+   G->G 0.985462
+   T->G 0.00314851
+   =#
+
+   hg19 = expm(Q*0.006591) * [0,0,1,0]
+   @test length(hg19) == 4
+
+   #=
+   panTro length=0.006639
+   A->G 0.0126803 
+   C->G 0.00381511
+   G->G 0.985357  
+   T->G 0.00317139
+   =#
+
+   panTro = expm(Q*0.006639) * [0,0,1,0]
+   @test length(panTro) == 4
+
+   #=
+   hgpanAnc length=0.002184
+   A->A 0.000158486
+   A->C 2.07831e-7 
+   A->G 4.64153e-7 
+   A->T 1.8804e-7
+
+   C->A 2.28759e-8
+   C->C 1.43597e-5
+   C->G 1.51679e-8
+   C->T 5.20155e-8
+
+   G->A 0.00409759
+   G->C 0.00122328
+   G->G 0.966317  
+   G->T 0.0010147 
+
+   T->A 1.47604e-8
+   T->C 3.7086e-8 
+   T->G 8.97429e-9
+   T->T 9.92702e-6
+
+   *->A 0.0042561136363
+   *->C 0.001237884617
+   *->G 0.9663174882951899
+   *->T 0.0010248670755000002
+   =#
+
+   hgpanAnc = expm(0.002184*Q) * (hg19 .* panTro)
+   @test length(hgpanAnc) == 4
+
+   @test round(0.0042561136363, 6) == round(hgpanAnc[1], 6)
+   @test round(0.001237884617, 6) == round(hgpanAnc[2], 6)
+   @test round(0.9663174882951899, 6) == round(hgpanAnc[3], 6)
+   @test round(0.0010248670755000002, 6) == round(hgpanAnc[4], 6)
+
+   @test round(likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
+
+   smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.5);")
+   pairtree = deepcopy(smtree)
+   set_prob_mat!( smtree, GTR_SINGLE_Q )
+   set_prob_mat!( pairtree, GTR_PAIRED_Q )
+
+   smtree.root.right.value.prob   = expm(GTR_SINGLE_Q*0.05)
+   pairtree.root.right.value.prob = expm(GTR_PAIRED_Q*0.05)
+
+   single_p = likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( tree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   paired_p = likelihood( paired_tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   @test single_p > paired_p
+
+   single_p = likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( tree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   paired_p = likelihood( paired_tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   @test paired_p > single_p
+
 end
 
 @testset "RNADuplexArray Building and Traversal" begin
@@ -686,7 +763,7 @@ end
 
 end
 
-@testset "PhyloDuplexes" begin
+@testset "EvoDuplexes" begin
       maffile = """
 ##maf version=1 scoring=roast.v3.3
 a score=-50707.000000
@@ -737,7 +814,7 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
    end 
       
    # test build RNADuplexArray from MAF file...
-    
-
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, tree, 25 )
+   res = traverse( rda, bulge_max=1, tree=tree )
 end
 

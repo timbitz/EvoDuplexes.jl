@@ -13,6 +13,10 @@ type RNADuplex <: AbstractDuplex
    RNADuplex() = new(NucleotidePair[], Float64[0.0], 0)
 end
 
+path( dup::RNADuplex ) = dup.path
+
+Base.getindex( duplex::RNADuplex, ind ) = duplex.path[ind]
+
 function Base.push!( duplex::RNADuplex, pair::RNAPair )
    cur_energy = duplex.energy[end]
    if length(duplex.path) == 0
@@ -30,7 +34,7 @@ function Base.push!( duplex::RNADuplex, pair::RNAPair )
    push!( duplex.energy, cur_energy )
 end
 
-function Base.push!{NP <: Union{RNAMismatch,RNABulge}}( duplex::RNADuplex, pair::NP )
+function Base.push!{NP <: Union{RNAMismatch,RNABulge,InvalidPair}}( duplex::RNADuplex, pair::NP )
    push!( duplex.energy, duplex.energy[end] ) # don't calculate energy yet
    push!( duplex.path, pair )
 end
@@ -49,7 +53,10 @@ function Base.pop!( duplex::RNADuplex )
 end
 
 function Base.show( io::IO, duplex::RNADuplex )
-   print_index( io, idx ) = print(io, convert(RNANucleotide, UInt8(0x01 << (idx - 1))))
+   function print_index( io, idx )
+      val = idx != 15 ? UInt8(0x01 << (idx - 1)) : UInt8(0)
+      print(io, convert(RNANucleotide, val))
+   end
    print(io, "\n   ")
    for i in duplex.path
       if !isa( i, RNAPair ) && !( isa(i, RNABulge) && !isfiveprime(i) ) 
@@ -90,6 +97,10 @@ function Base.show( io::IO, duplex::RNADuplex )
    end
 end
 
+npairs( dup::RNADuplex )      = npairs( dup.path )
+nmismatches( dup::RNADuplex ) = nmismatches( dup.path )
+nbulges( dup::RNADuplex )     = nbulges( dup.path )
+
 function index_npairs{NP <: NucleotidePair}( path::Vector{NP}, nfive::Int, nthree::Int )
    i = 1
    lcnt  = 0
@@ -126,6 +137,23 @@ function strings{NP <: NucleotidePair}( path::Vector{NP} )
          f,l = split(pair)
          first *= chars[f]
          last  *= chars[l]
+      end
+   end
+   first,last
+end
+
+function lengths{NP <: NucleotidePair}( path::Vector{NP} )
+   first,last = 0,0
+   for pair in path
+      if isbulge(pair)
+         if isfiveprime(pair)
+            first += 1
+         else
+            last += 1
+         end
+      else
+         first += 1
+         last  += 1
       end
    end
    first,last

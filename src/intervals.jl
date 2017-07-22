@@ -39,7 +39,7 @@ function Base.collect{T}( col::DuplexCollection{T}; minlength::Int=1, minenergy:
    for n in keys(col.names)
       for b in sort(collect(keys(col.names[n])))
          for d in col.names[n][b]
-            if npairs( d.duplex.path ) >= minlength &&
+            if npairs( d.duplex ) >= minlength &&
                energy( d.duplex ) <= minenergy
                 push!( res, d )
             end
@@ -196,9 +196,9 @@ end
    if isoverlapping( a, b )
       npairs_first = a.first.last - b.first.first + 1
       npairs_last  = b.last.last  - a.last.first  + 1
-      afirst,alast = strings(a.duplex.path)
-      bfirst,blast = strings(b.duplex.path)
-      npairs = index_npairs(b.duplex.path, npairs_first, npairs_last)
+      afirst,alast = strings(path(a.duplex))
+      bfirst,blast = strings(path(b.duplex))
+      npairs = index_npairs(path(b.duplex), npairs_first, npairs_last)
       if abs(npairs_first - npairs_last) <= max_bulge &&
          length(bfirst) - npairs_first > 0 &&
          length(blast)  - npairs_last  > 0 &&
@@ -208,7 +208,7 @@ end
          alast[end-npairs_last+1:end]   == blast[1:npairs_last]
 
          spliced = deepcopy(a)
-         push!( spliced.duplex, b.duplex.path[npairs+1:end] )
+         push!( spliced.duplex, path(b.duplex)[npairs+1:end] )
          spliced.first.last = b.first.last
          spliced.last.first = b.last.first
          aspliced, bspliced = strings(spliced.duplex)
@@ -223,8 +223,8 @@ end
             spliced.last.last  - spliced.last.first  + 1 == length(bspliced) &&
             energy(spliced.duplex) < energy(a.duplex) && 
             energy(spliced.duplex) < energy(b.duplex) &&
-            nbulges(spliced.duplex.path) <= max_bulge && 
-            nmismatches(spliced.duplex.path) <= max_mis
+            nbulges(spliced.duplex) <= max_bulge && 
+            nmismatches(spliced.duplex) <= max_mis
              ret = Nullable(spliced)
          end
       end
