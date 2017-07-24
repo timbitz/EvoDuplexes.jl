@@ -18,7 +18,7 @@ importall Bio.Intervals
 
 include("../src/pairs.jl")
 include("../src/energy.jl")
-include("../src/duplex.jl")
+include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
 include("../src/trie.jl")

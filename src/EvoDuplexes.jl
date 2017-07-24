@@ -2,28 +2,46 @@
 
 module EvoDuplexes.jl
 
-using Bio
 using Bio.Seq
 using Bio.Intervals
 using SuffixArrays
+using Gadfly
+using Automa
 
-importall Bio.Seq
+using Bio.Seq
+using BufferedStreams
+using Libz
+
+import Automa
+import Automa.RegExp: @re_str
+import Compat: take!
+
 importall Bio.Intervals
 
-include("pairs.jl")
-include("energy.jl")
-include("duplex.jl")
-include("intervals.jl")
-include("traverse.jl")
-include("trie.jl")
-include("suffix.jl")
+include("../src/pairs.jl")
+include("../src/energy.jl")
+include("../src/rnaduplex.jl")
+include("../src/intervals.jl")
+include("../src/traverse.jl")
+include("../src/trie.jl")
+include("../src/mafreader.jl")
+include("../src/gtrmodel.jl")
+include("../src/newick.jl")
+include("../src/suffix.jl")
+include("../src/evoduplex.jl")
+include("../src/io.jl")
 
-export RNATrie,
-       DuplexTrie,
+export RNADuplex,
+       EvoDuplex,
+       MAFSpecies,
+       MAFRecord,
+       read!,
+       done,
        RNASuffixArray,
        RNADuplexArray,
        DuplexCollection,
        traverse,
+       collect,
        stitch
 
 end
