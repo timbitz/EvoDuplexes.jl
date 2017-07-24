@@ -1,6 +1,6 @@
 #__precompile__()
 
-module RNASuffixes
+module EvoDuplexes.jl
 
 using Bio
 using Bio.Seq

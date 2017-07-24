@@ -56,8 +56,20 @@ npairs( evo::EvoDuplex )      = npairs( evo.duplex )
 nmismatches( evo::EvoDuplex ) = nmismatches( evo.duplex )
 nbulges( evo::EvoDuplex )     = nbulges( evo.duplex )
 
+strings( evo::EvoDuplex )     = strings( evo.duplex )
+
 Base.push!{NP <: NucleotidePair}( evo::EvoDuplex, pair::NP )         = push!( evo.duplex, pair )
 Base.push!{NP <: NucleotidePair}( evo::EvoDuplex, path::Vector{NP} ) = push!( evo.duplex, path )
+
+function join_duplex!( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, npairs_last )
+   push!( left.duplex, path(right.duplex)[npairs+1:end] )
+   last  = (size(left.alignment, 2) - left.first) - npairs_last - 1
+   first = left.first - npairs_first
+   left.alignment = hcat(left.alignment[:,1:first], right.alignment, left.alignment[:,(end-last:end)])
+   left.bracket = vcat(left.bracket[1:first], right.bracket, left.bracket[end-last:end])
+   left.first += first
+   left
+end
 
 function score( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
    uns_like = 0.0

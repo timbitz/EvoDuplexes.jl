@@ -840,13 +840,28 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
    end 
       
    # test build RNADuplexArray from MAF file...
-   smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.15);")
+   smtree   = parsenewick("((hg19:0.006591,panTro4:0.006639):0.002184,gorGor1:0.15);")
    pairtree = deepcopy(smtree)
    set_prob_mat!( smtree, GTR_SINGLE_Q )
    set_prob_mat!( pairtree, GTR_PAIRED_Q )
 
-   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, tree, 25 )
-   res = collect(traverse( rda, bulge_max=1, tree=tree ))
-   score(res[1].duplex, smtree, pairtree)
+   # test stitching of EvoDuplexes
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, smtree, 10 )
+   res = collect(traverse( rda, bulge_max=1, tree=smtree, minfold=-6.0 ))
+   for i in 1:length(res)-1
+      sti = stitch( res[i], res[i+1], 3, 3 )
+      @test !isnull(sti)
+      left,right = strings(sti.value.duplex)
+      left_nts   = collect(DNASequence(RNASequence(left)))
+      right_nts  = collect(DNASequence(RNASequence(right)))
+      @test sti.value.duplex.alignment[1,1:length(left_nts)] == left_nts
+      @test sti.value.duplex.alignment[1,length(left_nts)+1:end] == reverse(right_nts)
+      @test length(sti.value.duplex.bracket) == length(left_nts) + length(right_nts)
+      @test sti.value.duplex.first == length(left_nts)
+   end
+
+   # score using EvoFold phylo-likelihood model
+   @test score(res[1].duplex, smtree, pairtree) > 0
+
 end
 

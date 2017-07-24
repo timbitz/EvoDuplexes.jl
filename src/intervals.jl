@@ -188,10 +188,7 @@ end
    pushinterval!( vect, int, rate=rate )
 end
 
-#bind_duplex( left::RNADuplex ) = push!( dup, path )
-#function bind_duplex( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, npairs_last )
-
-#end
+join_duplex!( left::RNADuplex, right::RNADuplex, npairs, npairs_first, npairs_last ) = push!( left, path(right)[npairs+1:end] )
 
 # This function 'stitches' two overlapping and compatible
 # duplexes together into one.
@@ -212,7 +209,7 @@ end
          alast[end-npairs_last+1:end]   == blast[1:npairs_last]
 
          spliced = deepcopy(a)
-         push!( spliced.duplex, path(b.duplex)[npairs+1:end] )
+         join_duplex!( spliced.duplex, b.duplex, npairs, npairs_first, npairs_last )
          spliced.first.last = b.first.last
          spliced.last.first = b.last.first
          aspliced, bspliced = strings(spliced.duplex)
