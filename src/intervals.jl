@@ -141,14 +141,14 @@ end
    end
 end
 
-@inline function findbetter{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}, left::Bool=true)
+@inline function findbetter{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}, left::Bool=true, rate::Float64=0.99)
    !haskey( dict, key ) && (return false)
    const vect = dict[key]
    i = left ? searchsortedfirst( vect, int, lt=precedes ) : 1
    while i <= length(vect)
       if left && precedes( int, vect[j] )
          return false
-      elseif isoverlapping( vect[i], int ) 
+      elseif isoverlapping( vect[i], int, rate ) 
          if energy(vect[i].duplex) < energy(int.duplex)
             return true
          else
@@ -188,6 +188,10 @@ end
    pushinterval!( vect, int, rate=rate )
 end
 
+#bind_duplex( left::RNADuplex ) = push!( dup, path )
+#function bind_duplex( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, npairs_last )
+
+#end
 
 # This function 'stitches' two overlapping and compatible
 # duplexes together into one.

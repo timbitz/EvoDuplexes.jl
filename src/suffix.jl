@@ -291,7 +291,7 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=1:typ
                                from_mismatch::Bool )
 
       # obtain position range for current depth
-      if fdepth < dsa.fwd.length && rdepth < dsa.rev.length
+      if fdepth <= dsa.fwd.length && rdepth <= dsa.rev.length
          const franges = positions( dsa.fwd.depth[fdepth], first(frange), last(frange), alpha )
          const rranges = positions( dsa.rev.depth[rdepth], first(rrange), last(rrange), alpha )
       else

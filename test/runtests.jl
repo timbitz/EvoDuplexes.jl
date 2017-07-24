@@ -424,7 +424,22 @@ end
    @test !isnull( stitch(i2, i, 3, 3) )   
 
    # test stitching with bulges
+   c = DuplexCollection{String}()
+   dup = RNADuplex()
+   push!(dup, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,AB_BULGE,GC_PAIR])
+   i = DuplexInterval(Interval("c",  1,  7,'+',"genea"),
+                      Interval("c",105,110,'+',"genea"), dup)
+   dup2 = RNADuplex()
+   push!(dup2, [GC_PAIR,AB_BULGE,GC_PAIR,UG_PAIR,AU_PAIR,CG_PAIR,GC_PAIR])
+   i2 = DuplexInterval(Interval("c",  5, 11,'+',"genea"),
+                       Interval("c",101,106,'+',"genea"), dup2)
+
+   @test !isnull( stitch(i, i2, 3, 3) )
+   @test !isnull( stitch(i2, i, 3, 3) )
+
    # test negative stitching cases
+   
+
 end
 
 @testset "RNA Trie Building" begin
@@ -652,7 +667,7 @@ end
    T->G 0.00314851
    =#
 
-   hg19 = expm(Q*0.006591) * [0,0,1,0]
+   hg19 = expm(GTR_SINGLE_Q*0.006591) * [0,0,1,0]
    @test length(hg19) == 4
 
    #=
@@ -663,7 +678,7 @@ end
    T->G 0.00317139
    =#
 
-   panTro = expm(Q*0.006639) * [0,0,1,0]
+   panTro = expm(GTR_SINGLE_Q*0.006639) * [0,0,1,0]
    @test length(panTro) == 4
 
    #=
@@ -694,7 +709,7 @@ end
    *->T 0.0010248670755000002
    =#
 
-   hgpanAnc = expm(0.002184*Q) * (hg19 .* panTro)
+   hgpanAnc = expm(0.002184*GTR_SINGLE_Q) * (hg19 .* panTro)
    @test length(hgpanAnc) == 4
 
    @test round(0.0042561136363, 6) == round(hgpanAnc[1], 6)
@@ -704,20 +719,17 @@ end
 
    @test round(likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
 
-   smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.5);")
+   smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.15);")
    pairtree = deepcopy(smtree)
    set_prob_mat!( smtree, GTR_SINGLE_Q )
    set_prob_mat!( pairtree, GTR_PAIRED_Q )
 
-   smtree.root.right.value.prob   = expm(GTR_SINGLE_Q*0.05)
-   pairtree.root.right.value.prob = expm(GTR_PAIRED_Q*0.05)
-
-   single_p = likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( tree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
-   paired_p = likelihood( paired_tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
    @test single_p > paired_p
 
-   single_p = likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( tree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
-   paired_p = likelihood( paired_tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
    @test paired_p > single_p
 
 end
@@ -736,6 +748,7 @@ end
       @test <=( rsuf.depth, i, rsuf.depth, i+1 )
    end
 
+   # test basic duplex array building and traversal
    rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
    @test length(collect(traverse( rda, 12:50, bulge_max=0 ), minenergy=-15.0)) == 0
    @test length(collect(traverse( rda, 12:50, bulge_max=1 ), minenergy=-15.0)) == 1
@@ -743,6 +756,19 @@ end
    res = shift!(collect(traverse( rda, 12:50, bulge_max=1 )))
    @test first(res.first) == 1 && last(res.first) == 13
    @test first(res.last) == 24 && last(res.last) == length(seq)
+
+   # test stitching of smaller duplex collection
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 10 )
+   res = collect(traverse(rda, bulge_max=1, minfold=-6.0))
+   @test length(res) == 5
+   i = 1
+   for j in res
+      @test j.first.first == i
+      i += 1
+   end
+   sti = stitch(traverse(rda, bulge_max=1, minfold=-6.0))
+   @test length(collect(sti)) == 1
+
 
    # TODO
    # test fwd and rev sequences for intermolecular constructor
@@ -814,7 +840,13 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
    end 
       
    # test build RNADuplexArray from MAF file...
+   smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.15);")
+   pairtree = deepcopy(smtree)
+   set_prob_mat!( smtree, GTR_SINGLE_Q )
+   set_prob_mat!( pairtree, GTR_PAIRED_Q )
+
    rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, tree, 25 )
-   res = traverse( rda, bulge_max=1, tree=tree )
+   res = collect(traverse( rda, bulge_max=1, tree=tree ))
+   score(res[1].duplex, smtree, pairtree)
 end
 

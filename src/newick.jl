@@ -75,17 +75,17 @@ function parsenewick(newick::Expr)
 end
 
 # Set P = exp(Q*b) for each node    
-set_prob_mat(tree::PhyloTree, Q::Array{Float64,2}) = set_prob_mat(tree.root, Q)
+set_prob_mat!(tree::PhyloTree, Q::Array{Float64,2}) = set_prob_mat!(tree.root, Q)
 
-function set_prob_mat(node::PhyloNode, Q::Array{Float64,2})
+function set_prob_mat!(node::PhyloNode, Q::Array{Float64,2})
    if !isnull(node.left) && !isnull(node.right) # internal node
-      left  = set_prob_mat(node.left.value,  Q)
-      right = set_prob_mat(node.right.value, Q)
+      left  = set_prob_mat!(node.left.value,  Q)
+      right = set_prob_mat!(node.right.value, Q)
    end
    if node.length > 0
       node.prob = expm(Q*node.length)
    end
-     # node.prob = fill(1/size(Q,1), size(Q))
+   node
 end
 
 function Base.collect( root::PhyloNode )
