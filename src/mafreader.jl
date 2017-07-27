@@ -21,7 +21,7 @@ const record_machine = (function ()
     emptyline   = re.cat(re" *", newline)
 
     scoreline   = re.cat(re" ?a score=", float, re.alt(newline, re.cat(re" ", anything, newline)))
-    #scoreline.actions[:enter]   = [:setpos]
+    #scoreline.actions[:enter]   = [:setstart]
 
     organism    = re"[0-9A-Za-z\.\_\-]+"
     organism.actions[:enter]    = [:mark]
@@ -67,46 +67,64 @@ maf_actions_stream = Dict(
             :countline   => :(linenum += 1),
             :mark        => :(mark = p),
             :score => quote
-                range = (mark:p-1) 
-                score = length(range) <= 0 || mark == 0 ? "" : convert(String, data[range])
+                if !bad_record
+                   range = (mark:p-1)
+                   score = length(range) <= 0 || mark == 0 ? "" : convert(String, data[range])
+                end
                 mark = 0
             end,
             :organism => quote
-                range = (mark:p-1)
-                organism = mark == 0 ? "" : convert(String, data[range])
+                if !bad_record
+                   range = (mark:p-1)
+                   organism = mark == 0 ? "" : convert(String, data[range])
+                end
                 mark = 0
             end,
             :position => quote
-                range = (mark:p-1) 
-                position = length(range) <= 0 || mark == 0 ? "" : convert(String, data[range])
+                if !bad_record
+                   range = (mark:p-1)
+                   position = length(range) <= 0 || mark == 0 ? "" : convert(String, data[range])
+                end
                 mark = 0
             end,
             :size => quote
-                range = (mark:p-1) 
-                size = length(range) <= 0 || mark == 0 ? "" : convert(String, data[range])
+                if !bad_record
+                   range = (mark:p-1)
+                   size = length(range) <= 0 || mark == 0 ? "" : convert(String, data[range])
+                end
                 mark = 0
             end,
             :strand => quote
-                range = (mark:p-1) 
-                strand = mark == 0 ? true : Char(data[last(range)]) == '+'
+                if !bad_record
+                   range = (mark:p-1)
+                   strand = mark == 0 ? true : Char(data[last(range)]) == '+'
+                end
                 mark = 0
             end,
             :sequence => quote
-                range = (mark:p-1) 
-                sequence = mark == 0 ? "" : chomp(String(data[range]))
+                if !bad_record
+                   range = (mark:p-1)
+                   sequence = mark == 0 ? "" : chomp(String(data[range]))
+                end
                 mark = 0
             end,
             :setpos => :(stream.position = p; mark_cs = cs), #println("Set stream position $p at cs $cs")),
             :entry  => quote
                 try
-                   #println(STDERR, "entry exit: $organism")
-                   len    = parse(Int, size)
-                   pscore = parse(Float64, score)
-                   if len > reader.minlen && pscore > reader.minscore
+                   if first
+                      const len    = parse(Int, size)
+                      const pscore = parse(Float64, score)
+                      const pos    = parse(Int, position)
+                      org,chr = parsename( organism, reader.keepname )
+                      if (len < reader.minlen || pscore < reader.minscore) ||
+                         (regionbool && !IntervalTrees.hasintersection( regions.trees[chr], pos ) )
+                         bad_record = true
+                      end
+                   end
+                   first = false
+                   if !bad_record
                       org,chr = parsename( organism, reader.keepname )
                       push!(record.species, MAFSpecies(org, chr, parse(Int, position), strand, DNASequence(sequence)))
-                   else
-                      bad_record = true
                    end
                 catch
                    println(STDERR, "size: $size and score: $score")
@@ -146,24 +164,29 @@ function Base.reverse!( maf::MAFRecord )
    end
 end
 
+function reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
+   for s in mblock.species
+      Bio.Seq.reverse_complement!( s.sequence )
+      if strandflip
+         s.strand = s.strand ? false : true
+      end
+   end
+end
+
 Base.length( maf::MAFRecord ) = length(maf.species)
 
 
 function deletegaps!( mblock::MAFRecord )
-   str = string(mblock.species[1].sequence)
+   str = convert(String, mblock.species[1].sequence)
    ind = search(str, r"-+")
    if length(ind) > 0
-      deletegaps!( mblock, ind )
+      for i in mblock.species
+         deleteat!( i.sequence, ind )
+      end
       deletegaps!( mblock )
       return
    else
       return
-   end
-end
-
-function deletegaps!( mblock::MAFRecord, ind::UnitRange )
-   for i in mblock.species
-      deleteat!( i.sequence, ind )
    end
 end
 
@@ -212,12 +235,14 @@ function parsename( name::String, keepname::Bool )
       return name,name
    else
       spl = split(name, '.')
-      length(spl) < 2 && error("Must have a . in the name if MAFReader( ..., keepname=true )")
+      length(spl) < 2 && error("Must have a . in the name if MAFReader( ..., keepname=true ): $name")
       return convert(String, spl[1]),convert(String, spl[2])
    end 
 end
 
-@eval function Base.read!(reader::MAFReader, record::MAFRecord)
+const EMPTY_INTCOL = IntervalCollection{Void}()
+
+@eval function Base.read!(reader::MAFReader, record::MAFRecord; regionbool::Bool=false, regions::IntervalCollection=EMPTY_INTCOL)
     cs      = reader.cs
     stream  = reader.stream
     data    = stream.buffer
@@ -234,6 +259,7 @@ end
     found_record = false
     rebuffered   = false
     retry        = false
+    first        = true
 
     if cs < 0
         error("the reader is in error state")
@@ -258,13 +284,15 @@ end
         elseif found_record && bad_record
            bad_record = false
            found_record = false
+           first = true
+           empty!(record.species)
            continue
         elseif (p == p_eof+1 && data[p_eof] == 10)
            #println("p==p_eof+1 p:$p p_eof:$p_eof cs:$cs \"$(Char(data[p-1]))\" $record")
-           organism,chr = parsename(organism, reader.keepname)
-           spec = MAFSpecies(organism, chr, parse(Int, position), strand, DNASequence(sequence))
-           if !bad_record && !(record[end] == spec)
-              push!(record.species, spec)
+           if !bad_record && organism != ""
+              org,chr = parsename( organism, reader.keepname )
+              spec = MAFSpecies(org, chr, parse(Int, position), strand, DNASequence(sequence))
+              length(record.species) > 0 && !(record.species[end] == spec) && push!(record.species, spec)
            end
            reader.cs = 0
            return record
@@ -297,5 +325,79 @@ end
         end
 
     end
+end
+
+
+function stitch!( a::MAFRecord, b::MAFRecord, index::Dict{String,Int} )
+   const aref = a.species[1]
+   const bref = b.species[1]
+   sort!( a.species, by=x->index[x.name] )
+   sort!( b.species, by=x->index[x.name] )
+   aref.name != bref.name && error("Invalid stitching of alignment blocks with two different references $(aref.name) & $(bref.name)!!")
+   if aref.position+length(aref.sequence) == bref.position
+       i,j = 1,1
+       println(" $( map(x->a.species[x].name, 1:length(a)) ) && \n $( map(x->b.species[x].name, 1:length(b)) )")
+       while i <= length(a.species) && j <= length(b.species)
+          println("$( a.species[i].name ) vs. $( b.species[j].name ) for $i and $j")
+          if a.species[i].name == b.species[j].name
+             a.species[i].sequence *= b.species[j].sequence
+             i += 1
+             j += 1
+          elseif index[a.species[i].name] < index[b.species[j].name]
+             a.species[i].sequence *= dna"-" ^ length(bref.sequence)
+             i += 1
+          else
+             b.species[j].sequence = dna"-" ^ length(aref.sequence) * b.species[j].sequence
+             insert!( a.species, i, b.species[j] )
+             i += 1
+             j += 1
+          end
+       end
+       return true
+   else
+      return false
+   end
+end
+
+const MAFInterval = Interval{MAFRecord}
+const MAFCollection = IntervalCollection{MAFRecord}
+
+function readmaf!( reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf )
+   maf = MAFCollection()
+   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore )
+end
+
+function readmaf!( maf::MAFCollection, reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf )
+   #reader.minlen   = minlength
+   #reader.minscore = minscore
+   prev = MAFRecord()
+   while !done( reader )
+      rec = MAFRecord()
+      read!( reader, rec )
+      if length(rec.species) >= minspecies
+         try
+            deletegaps!(rec)
+         catch
+            println(rec)
+            error()
+         end
+         if length(prev) > 0
+            if !(stitch!( prev, rec, order ))
+               const ref = prev.species[1]
+               if length(ref.sequence) > minlength
+                  push!( maf, MAFInterval(ref.chr, ref.position, ref.position+length(ref.sequence)-1, ref.strand ? '+' : '-', prev) )
+               end
+               prev = rec
+            end
+         else
+            prev = rec
+         end
+      end
+   end
+   if length(prev) > 0
+      const ref = prev.species[1]
+      push!( maf, MAFInterval(ref.chr, ref.position, ref.position+length(ref.sequence)-1, ref.strand ? '+' : '-', prev) )
+   end
+   maf
 end
 

@@ -32,7 +32,7 @@ rgba_to_int( col::Gadfly.RGBA ) = Int(floor(col.r*255)),Int(floor(col.g*255)),In
 
 function weighted_rgb( dg::Float64, maxenergy::Float64 )
    if dg < 0.0
-      ind = Int(floor((abs(dg) / abs(maxenergy)) * 100))
+      ind = min(Int(floor((abs(dg) / abs(maxenergy)) * 100)), 100)
       col = DEF_COLORS[ind]
    else 
       col = DEF_COLORS[1]
@@ -47,7 +47,7 @@ function writebed{T}( io, dup::DuplexInterval{T}, name::String; maxdistance::Int
       tab_write( io, string(dup.first.seqname) )
       tab_write( io, string(dup.first.first-1) )
       tab_write( io, string(dup.last.last) )
-      tab_write( io, "RNASuffixes.jl:" * name )
+      tab_write( io, "EvoDuplexes.jl:" * name )
       tab_write( io, string(min(1000, energy(dup.duplex) * -250)) )
       tab_write( io, dup.first.strand == STRAND_POS ? '+' : '-' )
       tab_write( io, string(dup.first.first-1) )

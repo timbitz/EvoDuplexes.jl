@@ -789,7 +789,7 @@ end
 
 end
 
-@testset "EvoDuplexes" begin
+@testset "RNADuplexArray EvoDuplexes: building, traversal, stitching, scoring" begin
       maffile = """
 ##maf version=1 scoring=roast.v3.3
 a score=-50707.000000
@@ -847,7 +847,7 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
 
    # test stitching of EvoDuplexes
    rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, smtree, 10 )
-   res = collect(traverse( rda, bulge_max=1, tree=smtree, minfold=-6.0 ))
+   res = collect(traverse( rda, bulge_max=1, single=smtree, minfold=-6.0 ))
    for i in 1:length(res)-1
       sti = stitch( res[i], res[i+1], 3, 3 )
       @test !isnull(sti)
@@ -861,7 +861,7 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
    end
 
    # score using EvoFold phylo-likelihood model
-   @test score(res[1].duplex, smtree, pairtree) > 0
+   @test score!(res[1].duplex, smtree, pairtree) > 0
 
 end
 

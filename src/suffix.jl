@@ -259,10 +259,10 @@ function positions{N <: Bio.Seq.Nucleotide}( nucs::Vector{N}, lo::Int, hi::Int, 
 end
 
 
-function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=1:typemax(Int);
+function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=3:typemax(Int);
                           bulge_max::Int=zero(Int), mismatch_max::Int=zero(Int),
                           raw_output::String="", minfold::Float64=-5.0,
-                          tree::PhyloTree=EMPTY_TREE)
+                          single::PhyloTree=EMPTY_TREE, paired::PhyloTree=EMPTY_TREE)
 
    const pairs_idx      = index(A, pairs)
    const bulges_idx     = index(A, gaps)
@@ -319,9 +319,18 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=1:typ
                      const fg = fwd_entry.offset-1
                      const rg = rev_entry.offset-1
                      fwd_entry.name == rev_entry.name && !(((rg+jfirst) - (fg+ilast)) + 1 in foldrange) && continue
-                     push!( intervals, DuplexInterval( Interval(fwd_entry.name, fg+ifirst, fg+ilast, tochar(fwd_entry.strand), dsa.fwd.meta[ix]),
-                                                       Interval(rev_entry.name, rg+jfirst, rg+jlast, tochar(rev_entry.strand), dsa.rev.meta[jx]),
-                                                       dsa.isphylo ? EvoDuplex(duplex, tree, dsa, ix, jx) : deepcopy(duplex) ) )
+                     if dsa.isphylo
+                        evo = paired == EMPTY_TREE ? EvoDuplex(duplex, single, dsa, ix, jx) :
+                                                     EvoDuplex(duplex, single, paired, dsa, ix, jx)
+                        score(evo) < 0.0 && continue
+                        push!( intervals, DuplexInterval( Interval(fwd_entry.name, fg+ifirst, fg+ilast, tochar(fwd_entry.strand), dsa.fwd.meta[ix]),
+                                                          Interval(rev_entry.name, rg+jfirst, rg+jlast, tochar(rev_entry.strand), dsa.rev.meta[jx]),
+                                                          evo ) )
+                     else
+                        push!( intervals, DuplexInterval( Interval(fwd_entry.name, fg+ifirst, fg+ilast, tochar(fwd_entry.strand), dsa.fwd.meta[ix]),
+                                                          Interval(rev_entry.name, rg+jfirst, rg+jlast, tochar(rev_entry.strand), dsa.rev.meta[jx]),
+                                                          deepcopy(duplex) ) )
+                     end
                end
             end
             _traverse(  fdepth + 1, rdepth + 1,

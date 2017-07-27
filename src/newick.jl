@@ -88,6 +88,19 @@ function set_prob_mat!(node::PhyloNode, Q::Array{Float64,2})
    node
 end
 
+extend_branches!(tree::PhyloTree, multiplier::Float64) = extend_branches!(tree.root, multiplier)
+
+function extend_branches!(node::PhyloNode, multiplier::Float64)
+   if !isnull(node.left) && !isnull(node.right) # internal node
+      left  = extend_branches!(node.left.value, multiplier)
+      right = extend_branches!(node.right.value, multiplier)
+   end
+   if node.length > 0
+      node.length *= multiplier
+   end
+   node
+end
+
 function Base.collect( root::PhyloNode )
    res = Vector{String}()
    function dfs_names!( vec::Vector{String}, node::PhyloNode )

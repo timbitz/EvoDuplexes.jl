@@ -45,6 +45,12 @@ type EvoDuplex <: AbstractDuplex
       end
       return new( deepcopy(rdup), alignment, first-1, bracket, 0.0 )
    end
+
+   function EvoDuplex( rdup::RNADuplex, single::PhyloTree, paired::PhyloTree, dsa::RNADuplexArray, fwd_index, rev_index )
+      evo = EvoDuplex( rdup, single, dsa, fwd_index, rev_index )
+      score!( evo, single, paired )
+      return evo
+   end
 end
 
 path( evo::EvoDuplex )        = evo.duplex.path
@@ -71,7 +77,9 @@ function join_duplex!( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, 
    left
 end
 
-function score( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
+score( evo::EvoDuplex ) = evo.score
+
+function score!( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
    uns_like = 0.0
    str_like = 0.0
    first   = 1
@@ -96,4 +104,64 @@ function score( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
    end
    evo.score = str_like - uns_like
    evo.score
+end
+
+function covariance( evo::EvoDuplex )
+   first   = 1
+   last    = size(evo.alignment, 2)
+   vals    = 0.0
+   npairs  = 0
+   for k in 1:length(evo.duplex.path)
+      if isbulge(evo.duplex[k]) && isfiveprime(evo.duplex[k])
+         first += 1
+      elseif isbulge(evo.duplex[k]) && !isfiveprime(evo.duplex[k])
+         last -= 1
+      else
+    #     println(evo.alignment[:,first])
+    #     println(evo.alignment[:,last])
+
+         cov = covariance_score(evo.alignment[:,first], evo.alignment[:,last])
+         #print(" $cov ")
+         #maxval = cov > maxval ? cov : maxval
+         vals   += cov
+         first  += 1
+         last   -= 1
+         npairs += 1
+      end
+   end
+   #println( " $maxval \n" )
+   vals / npairs
+end
+
+const PI_MATRIX = [0.0 0.0 0.0 1.0
+                   0.0 0.0 1.0 0.0
+                   0.0 1.0 0.0 1.0
+                   1.0 0.0 1.0 0.0]
+
+delta( a::Bio.Seq.Nucleotide, b::Bio.Seq.Nucleotide ) = a == b ? 1 : 0
+
+function pi_matrix( a::Bio.Seq.Nucleotide, b::Bio.Seq.Nucleotide )
+   if isgap( a ) || isgap( b ) 
+      return 0.0
+   else
+      const ind_a = trailing_zeros(reinterpret(UInt8, a)) + 1
+      const ind_b = trailing_zeros(reinterpret(UInt8, b)) + 1
+      return PI_MATRIX[ ind_a, ind_b ]
+   end
+end
+
+# Calculated as described by Hofacker et al. Journal of Molecular Biology 2002.
+# https://www.ncbi.nlm.nih.gov/pubmed/12079347
+function covariance_score( a::Vector{Bio.Seq.Nucleotide}, b::Vector{Bio.Seq.Nucleotide} )
+   denom = binomial(length(a), 2)
+   numer = 0.0
+   pairs = 0
+   for i in 1:length(a)-1
+      pairs += pi_matrix( a[i], b[i] )
+      for j in i+1:length(a)
+         numer += (2 - delta(a[i], a[j]) - delta(b[i], b[j])) * pi_matrix( a[i], b[i] ) * pi_matrix( a[j], b[j] )
+      end
+   end
+   pairs += pi_matrix( a[end], b[end] )
+   return (numer / denom) * (pairs / length(a))
 end
