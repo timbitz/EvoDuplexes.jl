@@ -336,9 +336,9 @@ function stitch!( a::MAFRecord, b::MAFRecord, index::Dict{String,Int} )
    aref.name != bref.name && error("Invalid stitching of alignment blocks with two different references $(aref.name) & $(bref.name)!!")
    if aref.position+length(aref.sequence) == bref.position
        i,j = 1,1
-       println(" $( map(x->a.species[x].name, 1:length(a)) ) && \n $( map(x->b.species[x].name, 1:length(b)) )")
+       #println(" $( map(x->a.species[x].name, 1:length(a)) ) && \n $( map(x->b.species[x].name, 1:length(b)) )")
        while i <= length(a.species) && j <= length(b.species)
-          println("$( a.species[i].name ) vs. $( b.species[j].name ) for $i and $j")
+          #println("$( a.species[i].name ) vs. $( b.species[j].name ) for $i and $j")
           if a.species[i].name == b.species[j].name
              a.species[i].sequence *= b.species[j].sequence
              i += 1
