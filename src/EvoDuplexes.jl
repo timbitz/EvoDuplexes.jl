@@ -35,13 +35,25 @@ export RNADuplex,
        EvoDuplex,
        MAFSpecies,
        MAFRecord,
+       MAFReader,
+       readmaf!,
        read!,
        done,
        RNASuffixArray,
        RNADuplexArray,
        DuplexCollection,
+       DuplexInterval,
+       energy,
        traverse,
        collect,
-       stitch
+       stitch,
+       covariance,
+       score!,
+       dinucleotide_entropy,
+       writebed,
+       extend_branches!,
+       set_prob_mat!,
+       parsenewick
+
 
 end
