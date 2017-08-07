@@ -77,6 +77,15 @@ function join_duplex!( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, 
    left
 end
 
+type EvoScore 
+   unstr_cons::Float64
+   struc_neut::Float64
+   struc_cons::Float64
+   mean_covar::Float64
+   mean_cons::Float64
+end
+
+
 score( evo::EvoDuplex ) = evo.score
 
 function score!( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
@@ -86,6 +95,41 @@ function score!( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
    last    = size(evo.alignment, 2)
    for k in 1:length(evo.duplex.path)
       if isbulge(evo.duplex[k]) && isfiveprime(evo.duplex[k]) 
+         like = likelihood( single, evo.alignment[:,first] )
+         str_like += log2(like)
+         uns_like += log2(like)
+         first += 1
+      elseif isbulge(evo.duplex[k]) && !isfiveprime(evo.duplex[k])
+         like = likelihood( single, evo.alignment[:,last] )
+         str_like += log2(like)
+         uns_like += log2(like)
+         last -= 1
+      else
+         str_like += log2(likelihood(paired, evo.alignment[:,first], evo.alignment[:,last]))
+         uns_like += log2(likelihood(single, evo.alignment[:,first])) + log2(likelihood(single, evo.alignment[:,last]))
+         first += 1
+         last  -= 1
+      end
+   end
+   evo.score = str_like - uns_like
+   str_like
+end
+
+function score( evo::EvoDuplex, single::PhyloTree; gapdenom=1.0 )
+   single_like = 0.0
+   for k in 1:size(evo.alignment,2)
+      single_like += log2(likelihood( single, evo.alignment[:,k], gapdenom=gapdenom ))
+   end
+   single_like
+end
+
+function pscore!( evo::EvoDuplex, single::PhyloTree, paired::PhyloTree )
+   uns_like = 0.0
+   str_like = 0.0
+   first   = 1
+   last    = size(evo.alignment, 2)
+   for k in 1:length(evo.duplex.path)
+      if isbulge(evo.duplex[k]) && isfiveprime(evo.duplex[k])
          like = likelihood( single, evo.alignment[:,first] )
          str_like += log2(like)
          uns_like += log2(like)
@@ -117,12 +161,8 @@ function covariance( evo::EvoDuplex )
       elseif isbulge(evo.duplex[k]) && !isfiveprime(evo.duplex[k])
          last -= 1
       else
-    #     println(evo.alignment[:,first])
-    #     println(evo.alignment[:,last])
-
          cov = covariance_score(evo.alignment[:,first], evo.alignment[:,last])
          #print(" $cov ")
-         #maxval = cov > maxval ? cov : maxval
          vals   += cov
          first  += 1
          last   -= 1
@@ -165,3 +205,5 @@ function covariance_score( a::Vector{Bio.Seq.Nucleotide}, b::Vector{Bio.Seq.Nucl
    pairs += pi_matrix( a[end], b[end] )
    return (numer / denom) * (pairs / length(a))
 end
+
+

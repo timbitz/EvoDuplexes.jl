@@ -362,18 +362,22 @@ end
 const MAFInterval = Interval{MAFRecord}
 const MAFCollection = IntervalCollection{MAFRecord}
 
-function readmaf!( reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf )
+const EMPTYCOL = IntervalCollection{Void}()
+
+function readmaf!( reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf, regionbool=false, regions=EMPTYCOL )
    maf = MAFCollection()
-   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore )
+   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore, regionbool=regionbool, regions=regions )
 end
 
-function readmaf!( maf::MAFCollection, reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf )
+function readmaf!( maf::MAFCollection, reader::MAFReader, order::Dict{String,Int}; 
+                   minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf,
+                   regionbool=false, regions=EMPTYCOL )
    #reader.minlen   = minlength
    #reader.minscore = minscore
    prev = MAFRecord()
    while !done( reader )
       rec = MAFRecord()
-      read!( reader, rec )
+      read!( reader, rec, regionbool=regionbool, regions=regions )
       if length(rec.species) >= minspecies
          try
             deletegaps!(rec)

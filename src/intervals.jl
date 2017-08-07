@@ -6,6 +6,8 @@ type DuplexInterval{T}
    duplex::AbstractDuplex   # rna duplex formed
 end
 
+distance( int::DuplexInterval ) = (int.last.first - int.first.last) - 1
+
 const ZERO_DUPLEX_INTERVAL = DuplexInterval(Interval("", 0, 0), Interval("", 0, 0), RNADuplex())
 
 # a DuplexCollection contains DuplexIntervals indexed by first interval
@@ -34,13 +36,14 @@ function Base.minimum{T}( col::DuplexCollection{T}; default::Float64=0.0 )
    minentry
 end
 
-function Base.collect{T}( col::DuplexCollection{T}; minlength::Int=1, minenergy::Float64=0.0 )
+function Base.collect{T}( col::DuplexCollection{T}; minlength::Int=1, minenergy::Float64=0.0, range::UnitRange=1:typemax(Int) )
    res = Vector{DuplexInterval{T}}()
    for n in keys(col.names)
       for b in sort(collect(keys(col.names[n])))
          for d in col.names[n][b]
             if npairs( d.duplex ) >= minlength &&
-               energy( d.duplex ) <= minenergy
+               energy( d.duplex ) <= minenergy &&
+               d.last.first - d.first.last in range
                 push!( res, d )
             end
          end

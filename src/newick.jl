@@ -127,7 +127,8 @@ end
 # to calculate the L(D|T) = L(k) = Sigma_x(pi(x)*L(x))
 # from the tree topology, branch lengths, instantaneous matrix (Q),
 # and the data at site i
-function likelihood( tree::PhyloTree, single::Vector{Bio.Seq.Nucleotide}; background=GTR_SINGLE_PI )
+function likelihood( tree::PhyloTree, single::Vector{Bio.Seq.Nucleotide}; 
+                     background=GTR_SINGLE_PI, gapdenom::Float64=1.0 )
    function _likelihood( node::PhyloNode, single::Vector{Bio.Seq.Nucleotide}, branchlength::Bool )
       if !isnull(node.left) && !isnull(node.right)
           if branchlength
@@ -142,7 +143,7 @@ function likelihood( tree::PhyloTree, single::Vector{Bio.Seq.Nucleotide}; backgr
       else
          #println("node: $(node.label)")
          const ind = tree.index[node.label]
-         const v = isgap( single[ind] ) ? (return ones(4)) : zeros(4)
+         const v = isgap( single[ind] ) ? (return ones(4) / gapdenom) : zeros(4)
          v[ trailing_zeros(reinterpret(UInt8, single[ind])) + 1 ] = 1.0
          return node.prob * v
       end

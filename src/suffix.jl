@@ -318,7 +318,7 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=3:typ
                      const jfirst,jlast = rev_entry.strand ? (jk-rdepth+1,jk) : (j,j+rdepth-1)
                      const fg = fwd_entry.offset-1
                      const rg = rev_entry.offset-1
-                     fwd_entry.name == rev_entry.name && !(((rg+jfirst) - (fg+ilast)) + 1 in foldrange) && continue
+                     fwd_entry.name == rev_entry.name && !(((rg+jfirst) - (fg+ilast)) - 1 in foldrange) && continue
                      if dsa.isphylo
                         evo = paired == EMPTY_TREE ? EvoDuplex(duplex, single, dsa, ix, jx) :
                                                      EvoDuplex(duplex, single, paired, dsa, ix, jx)
