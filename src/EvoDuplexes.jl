@@ -1,14 +1,15 @@
 #__precompile__()
 
-module EvoDuplexes.jl
+module EvoDuplexes
 
+using Bio
 using Bio.Seq
 using Bio.Intervals
+using IntervalTrees
 using SuffixArrays
 using Gadfly
 using Automa
 
-using Bio.Seq
 using BufferedStreams
 using Libz
 
@@ -30,6 +31,7 @@ include("../src/newick.jl")
 include("../src/suffix.jl")
 include("../src/evoduplex.jl")
 include("../src/io.jl")
+include("../src/regions.jl")
 
 export RNADuplex,
        EvoDuplex,
@@ -44,16 +46,22 @@ export RNADuplex,
        DuplexCollection,
        DuplexInterval,
        energy,
+       npairs,
        traverse,
        collect,
        stitch,
        covariance,
+       distance,
        score!,
+       score,
        dinucleotide_entropy,
        writebed,
        extend_branches!,
        set_prob_mat!,
-       parsenewick
+       parsenewick,
+       GTR_SINGLE_Q,
+       GTR_PAIRED_Q,
+       loadbed
 
 
 end
