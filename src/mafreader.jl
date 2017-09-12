@@ -164,7 +164,7 @@ function Base.reverse!( maf::MAFRecord )
    end
 end
 
-function reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
+function Bio.Seq.reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
    for s in mblock.species
       Bio.Seq.reverse_complement!( s.sequence )
       if strandflip

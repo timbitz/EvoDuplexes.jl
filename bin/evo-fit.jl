@@ -66,7 +66,7 @@ function main()
          length(col) > 1 || continue
          if r.strand == STRAND_NEG
             for i in col
-               reverse_complement!( i.metadata )
+               EvoDuplexes.reverse_complement!( i.metadata )
             end
          end
          println("Building DuplexArray for $(r.metadata.name)")

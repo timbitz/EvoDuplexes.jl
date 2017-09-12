@@ -71,9 +71,13 @@ function join_duplex!( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, 
    push!( left.duplex, path(right.duplex)[npairs+1:end] )
    last  = (size(left.alignment, 2) - left.first) - npairs_last - 1
    first = left.first - npairs_first
+#   try
    left.alignment = hcat(left.alignment[:,1:first], right.alignment, left.alignment[:,(end-last:end)])
    left.bracket = vcat(left.bracket[1:first], right.bracket, left.bracket[end-last:end])
    left.first += first
+#   catch
+#      println(STDERR, "$left\n$right\n$npairs\n$npairs_first\n$npairs_last")
+#   end
    left
 end
 

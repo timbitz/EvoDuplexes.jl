@@ -263,7 +263,7 @@ function stitch!{T}( res::Vector{DuplexInterval{T}}, vect::Vector{DuplexInterval
    for i in 1:length(vect)
       for j in i:searchsortedlast( vect, vect[i], lt=precedes )
          j == i && continue
-         sval = stitch( vect[i], vect[j], 5, 5 )
+         sval = stitch( vect[i], vect[j], 3, 3 )
          if !isnull(sval)
             pushinterval!( res, sval.value )
          end
