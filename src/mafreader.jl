@@ -331,24 +331,27 @@ end
 function stitch!( a::MAFRecord, b::MAFRecord, index::Dict{String,Int} )
    const aref = a.species[1]
    const bref = b.species[1]
+   const aref_len = length(aref.sequence)
+   const bref_len = length(bref.sequence)
    sort!( a.species, by=x->index[x.name] )
    sort!( b.species, by=x->index[x.name] )
    aref.name != bref.name && error("Invalid stitching of alignment blocks with two different references $(aref.name) & $(bref.name)!!")
    if aref.position+length(aref.sequence) == bref.position
        i,j = 1,1
        #println(" $( map(x->a.species[x].name, 1:length(a)) ) && \n $( map(x->b.species[x].name, 1:length(b)) )")
-       while i <= length(a.species) && j <= length(b.species)
+       while (i <= length(a.species) || j <= length(b.species))
           #println("$( a.species[i].name ) vs. $( b.species[j].name ) for $i and $j")
-          if a.species[i].name == b.species[j].name
+          if (i <= length(a.species) && j <= length(b.species)) &&
+              a.species[i].name == b.species[j].name
              a.species[i].sequence *= b.species[j].sequence
              i += 1
              j += 1
-          elseif index[a.species[i].name] < index[b.species[j].name]
-             a.species[i].sequence *= dna"-" ^ length(bref.sequence)
+          elseif j > length(b.species) || (i <= length(a.species) && index[a.species[i].name] < index[b.species[j].name])
+             a.species[i].sequence *= dna"-" ^ bref_len
              i += 1
           else
-             b.species[j].sequence = dna"-" ^ length(aref.sequence) * b.species[j].sequence
-             insert!( a.species, i, b.species[j] )
+             b.species[j].sequence = (dna"-" ^ aref_len) * b.species[j].sequence
+             insert!( a.species, i,  b.species[j] )
              i += 1
              j += 1
           end

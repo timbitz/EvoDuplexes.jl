@@ -636,6 +636,51 @@ s petMar2.GL501154                  43911 30 -     71231 --agttcacgtgag------ctc
    end
 end
 
+@testset "Parsing MAF File & Stitching" begin
+   # Stitching adjacent MAF records
+   maflines = """
+   a score=23262.0
+   s hg16.chr7    27571001 38 + 158545518 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+   s panTro1.chr6 28741140 38 + 161576975 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+   s baboon.chr1    116834 38 +   4622798 AAA-GGGAATGTTAACCAAATGA---GTTGTCTCTTATGGTG
+   s rn3.chr4     81344243 40 + 187371129 -AA-GGGGATGCTAAGCCAATGAGTTGTTGTCTCTCAATGTG
+
+   a score=5062.0
+   s hg16.chr7    27571039 6 + 158545518 TAAAGA
+   s panTro1.chr6 28862317 6 + 161576975 TAAAGA
+   s baboon.chr1    241163 6 +   4622798 TAAAGA
+   s rn3.chr4     81444246 6 + 187371129 taagga
+
+   a score=6636.0
+   s hg16.chr7    27571045 13 + 158545518 gcagctgaaaaca
+   s panTro1.chr6 28869787 13 + 161576975 gcagctgaaaaca
+   s baboon.chr1    249182 13 +   4622798 gcagctgaaaaca
+   s mm4.chr6     53310102 13 + 151104725 ACAGCTGAAAATA
+   """
+
+   tree = parsenewick("(((((hg16:0.006591,panTro1:0.006639):0.002184,baboon:0.009411):0.009942,
+                            mm4:0.018342):0.014256,rn3:0.036199):0.021496,unused:0.04);")
+
+   reader = MAFReader(BufferedInputStream(IOBuffer(maflines)))
+
+   col = readmaf!( reader, tree.index )
+   for i in col
+      for j in i.metadata.species
+         @test length(j.sequence) == length(i.metadata.species[1].sequence)
+      end
+   end
+   
+   println(col)
+
+   #=MAFRecord(MAFSpecies[
+   MAFSpecies("hg16","chr7",27571001,true,   AAAGGGAATGTTAACCAAATGAATTGTCTCTTACGGTGTAAAGAGCAGCTGAAAACA),
+   MAFSpecies("panTro1","chr6",28741140,true,AAAGGGAATGTTAACCAAATGAATTGTCTCTTACGGTGTAAAGAGCAGCTGAAAACA),
+   MAFSpecies("baboon","chr1",116834,true,   AAAGGGAATGTTAACCAAATGAGTTGTCTCTTATGGTGTAAAGAGCAGCTGAAAACA),
+   MAFSpecies("mm4","chr6",53215344,true,    -AAGGGAATGTTAAGCAAACGAATTGTCTCTCAGTGTGTAAAGAACAGCTGAAAATA),
+   MAFSpecies("rn3","chr4",81344243,true,    -AAGGGGATGCTAAGCCAATGAGTTGTCTCTCAATGTGTAAGGA-------------)
+   =#
+end
+
 @testset "Newick tree building and Felsenstein's algorithm" begin
    tree = parsenewick("(((((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.009411):0.009942,
                             ponAbe2:0.018342):0.014256,rheMac2:0.036199):0.021496,papHam1:0.04);")
@@ -845,11 +890,12 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
    set_prob_mat!( smtree, GTR_SINGLE_Q )
    set_prob_mat!( pairtree, GTR_PAIRED_Q )
 
-   # test stitching of EvoDuplexes
+   # test stitching of EvoDuplexes with toy case
    rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, smtree, 10 )
    res = collect(traverse( rda, bulge_max=1, single=smtree, minfold=-6.0 ))
    for i in 1:length(res)-1
       sti = stitch( res[i], res[i+1], 3, 3 )
+      println(sti)
       @test !isnull(sti)
       left,right = strings(sti.value.duplex)
       left_nts   = collect(DNASequence(RNASequence(left)))
@@ -860,9 +906,39 @@ s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------
       @test sti.value.duplex.first == length(left_nts)
    end
 
+   # try stitching of EvoDuplexes with complex real-world test case
+   maffile = """
+##maf version=1 scoring=roast.v3.3
+a score=-50707.000000
+s hg19.chr22                     16092279 32 +  51304566 ACTCTATCTTAAGCTTTTCTGCTTTTTAATTATCCTGAAGTAAAGATCTTTGCTGATCTTCTGACTTTAGTGAACCTATTAATGTGCTGCAGGCCCCAGTCAAAACTGGAACCAGGGATATAGTAACTATTGGAATCAAG--------------AGACCAGTTCTTGGAGTTATATCCTTTCTTAGGTGACTAGGCCTGCTGCACAATAATAGGTTAATTAAAGTCAGAAGAAGGTCAGCAAAGATGGATTGGGTGAGATTGGGGCCCTTTTCTTAGAAGGGCAGAGATACTAAGCACTG
+s panTro4.chr22                  14470459 32 +  49737984 ACTCTATCTTAAGCTTTTCTGCTTTTTAATTATCCTGAAGTAAAGATCTTTGCTGATCTTCTGACTTTAGTGAACCTATTAATGTGCTGCAGGCCCCAGTCAAAACTGGAACCAGGGATATAGTAACTATTGGAATCAAG--------------AGACCAGTTCTTGGAGTTATATCCTTTCTTAGGTGACTAGGCCTGCTGCACAATAATAGGTTAATTAAAGTCAGAAGAAGGTCAGCAAAGATGGATTGGGTGAGATTGGGGCCCTTTTCTTAGAAGGGCAGAGATACTAAGCACTG
+"""
+   mafread = MAFReader(BufferedInputStream(IOBuffer(maffile * "\n")))
+   mafrec = MAFRecord()
+   read!(mafread, mafrec)
+   @test done(mafread)
+   @test length(mafrec) == 2
+
+   rda = RNADuplexArray{DNAAlphabet{2},UInt16,UInt16}( mafrec, smtree, 50 )
+   res = collect(traverse( rda, bulge_max=3, mismatch_max=3, single=smtree, minfold=-6.0 ))
+   for i in 1:length(res)-1
+      sti = stitch( res[i], res[i+1], 3, 3 )
+      isnull(sti) && continue
+      println(res[i])
+      println(res[i+1])
+      println(sti)
+      left,right = strings(sti.value.duplex)
+      left_nts   = collect(DNASequence(RNASequence(left)))
+      right_nts  = collect(DNASequence(RNASequence(right)))
+      @test sti.value.duplex.alignment[1,1:length(left_nts)] == left_nts
+      @test sti.value.duplex.alignment[1,length(left_nts)+1:end] == reverse(right_nts)
+      @test length(sti.value.duplex.bracket) == length(left_nts) + length(right_nts)
+      @test sti.value.duplex.first == length(left_nts)
+   end
+
    # score using EvoFold phylo-likelihood model
-  # str,unstr = score!(res[1].duplex, smtree, pairtree)
-  # @test str - unstr > 0
+   # str,unstr = score!(res[1].duplex, smtree, pairtree)
+   # @test str - unstr > 0
 
 end
 

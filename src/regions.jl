@@ -8,3 +8,11 @@ function loadbed( filename::String )
    ic
 end
 
+function expandbed!( bed::IntervalCollection{BEDMetadata}, upstream::Int, downstream::Int )
+   for r in bed
+      r.first -= upstream
+      r.last  += downstream
+   end
+   bed
+end
+

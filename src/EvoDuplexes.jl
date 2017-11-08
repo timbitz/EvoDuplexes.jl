@@ -56,13 +56,13 @@ export RNADuplex,
        score!,
        score,
        dinucleotide_entropy,
-       writebed,
        extend_branches!,
        set_prob_mat!,
        parsenewick,
        GTR_SINGLE_Q,
        GTR_PAIRED_Q,
-       loadbed
-
+       loadbed,
+       expandbed!,
+       writebed
 
 end
