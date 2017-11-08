@@ -1,4 +1,4 @@
-# RNASuffixes.jl
+# EvoDuplexes.jl
 
 [![Build Status](https://travis-ci.com/timbitz/RNASuffixes.jl.svg?token=R7mZheNGhsReQ7hn2gdf&branch=master)](https://travis-ci.com/timbitz/RNASuffixes.jl)
 
