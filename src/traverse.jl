@@ -32,6 +32,17 @@ const RNAMISMATCH = [(RNA_A, RNA_A), (RNA_A, RNA_C),
 
 const PairsType = Vector{Tuple{Bio.Seq.Nucleotide, Bio.Seq.Nucleotide}}
 
+function twobitalpha{S <: Bio.Seq.Sequence}( seq::S )
+   t = eltype(seq)
+   if t == DNANucleotide
+      return DNAAlphabet{2}
+   elseif t == RNANucleotide
+      return RNAAlphabet{2}
+   else
+      error("RNASuffixArrays are only built for DNA/RNA input sequences!")
+   end
+end
+
 pairs{n}(::Type{Bio.Seq.DNAAlphabet{n}})      = DNAPAIRS
 pairs{n}(::Type{Bio.Seq.RNAAlphabet{n}})      = RNAPAIRS
 gaps{n}(::Type{Bio.Seq.DNAAlphabet{n}})       = DNAGAPS

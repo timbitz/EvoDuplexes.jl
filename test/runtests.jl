@@ -3,17 +3,31 @@ using Base.Test
 using Bio.Seq
 using Bio.Intervals
 using SuffixArrays
+using Gadfly
+using Automa
+
+using Bio.Seq
+using BufferedStreams
+using Libz
+
+import Automa
+import Automa.RegExp: @re_str
+import Compat: take!
 
 importall Bio.Intervals
 
 include("../src/pairs.jl")
 include("../src/energy.jl")
-include("../src/duplex.jl")
+include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
 include("../src/trie.jl")
+include("../src/mafreader.jl")
+include("../src/gtrmodel.jl")
+include("../src/newick.jl")
 include("../src/suffix.jl")
-
+include("../src/evoduplex.jl")
+include("../src/io.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -139,12 +153,12 @@ const bulge_set  = [AB_BULGE, CB_BULGE, GB_BULGE, UB_BULGE, BA_BULGE, BC_BULGE, 
    @test split(BG_BULGE) == 3
    @test split(BU_BULGE) == 4
 
-   path = [AU_PAIR, CG_PAIR, AB_BULGE]
-   @test five_three(path, 1:3) == (1,4)
-   @test five_three(path, 1:3, last=true) == (1,3)
-   path = [BC_BULGE, CG_PAIR, BA_BULGE]
-   @test five_three(path, 1:3) == (2,2)
-   @test five_three(path, 1:3, last=true) == (2,1)
+   mypath = [AU_PAIR, CG_PAIR, AB_BULGE]
+   @test five_three(mypath, 1:3) == (1,4)
+   @test five_three(mypath, 1:3, last=true) == (1,3)
+   mypath = [BC_BULGE, CG_PAIR, BA_BULGE]
+   @test five_three(mypath, 1:3) == (2,2)
+   @test five_three(mypath, 1:3, last=true) == (2,1)
 
 end
 
@@ -410,11 +424,28 @@ end
    @test !isnull( stitch(i2, i, 3, 3) )   
 
    # test stitching with bulges
+   c = DuplexCollection{String}()
+   dup = RNADuplex()
+   push!(dup, [CG_PAIR,GC_PAIR,CG_PAIR,CG_PAIR,GC_PAIR,AB_BULGE,GC_PAIR])
+   i = DuplexInterval(Interval("c",  1,  7,'+',"genea"),
+                      Interval("c",105,110,'+',"genea"), dup)
+   dup2 = RNADuplex()
+   push!(dup2, [GC_PAIR,AB_BULGE,GC_PAIR,UG_PAIR,AU_PAIR,CG_PAIR,GC_PAIR])
+   i2 = DuplexInterval(Interval("c",  5, 11,'+',"genea"),
+                       Interval("c",101,106,'+',"genea"), dup2)
+
+   @test !isnull( stitch(i, i2, 3, 3) )
+   @test !isnull( stitch(i2, i, 3, 3) )
+
    # test negative stitching cases
+   
+
 end
 
 @testset "RNA Trie Building" begin
-   
+
+   # Vestigial tests for a deprecated data structure
+
    A = Bio.Seq.DNAAlphabet{2}
    trie = RNATrie{A,String}( 1:3 )
    @test trie.range == 1:3
@@ -451,21 +482,463 @@ end
    end 
    @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
    @test nodecount( trie ) == 9
-
 end
 
 @testset "Duplex Trie Building and Traversal" begin
 
+   # Duplex Trie deprecated...
+
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
-   @test length(traverse( trie, 8:100, bulge_max=0 )) == 0
-   val = traverse( trie, 8:100, bulge_max=1 )
+   @test length(traverse( trie, 8:50, bulge_max=0 )) == 0
+   val = traverse( trie, 8:50, bulge_max=1 )
    @test length(val) == 1
+
+end
+
+@testset "MAF Parser" begin
+   mafheader = """
+##maf version=1 scoring=tba.v8 
+ # tba.v8 (((human chimp) baboon) (mouse rat)) 
+ # multiz.v7
+ # maf_project.v5 _tba_right.maf3 mouse _tba_C
+ # single_cov2.v4 single_cov2 /dev/stdin
+"""
+   maflines = """
+a score=23262.0
+s hg16.chr7    27578828 38 + 158545518 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+s panTro1.chr6 28741140 38 + 161576975 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+s baboon.chr1    116834 38 +   4622798 AAA-GGGAATGTTAACCAAATGA---GTTGTCTCTTATGGTG
+s mm4.chr6     53215344 38 + 151104725 -AATGGGAATGTTAAGCAAACGA---ATTGTCTCTCAGTGTG
+s rn3.chr4     81344243 40 + 187371129 -AA-GGGGATGCTAAGCCAATGAGTTGTTGTCTCTCAATGTG
+
+a score=5062.0
+s hg16.chr7    27699739 6 + 158545518 TAAAGA
+s panTro1.chr6 28862317 6 + 161576975 TAAAGA
+s baboon.chr1    241163 6 +   4622798 TAAAGA
+s mm4.chr6     53303881 6 + 151104725 TAAAGA
+s rn3.chr4     81444246 6 + 187371129 taagga
+
+a score=6636.0
+s hg16.chr7    27707221 13 + 158545518 gcagctgaaaaca
+s panTro1.chr6 28869787 13 + 161576975 gcagctgaaaaca
+s baboon.chr1    249182 13 +   4622798 gcagctgaaaaca
+s mm4.chr6     53310102 13 + 151104725 ACAGCTGAAAATA
+"""
+   
+   maffile = mafheader * "\n" * maflines
+
+   # Single buffer:
+
+   headreader = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   noheadreader = MAFReader(BufferedInputStream(IOBuffer(maflines)))
+
+   discard_header!(headreader)
+   @test headreader.stream.buffer[1:10] == noheadreader.stream.buffer[1:10]   
+
+   headreader = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+
+   while !done(headreader)
+      headrec   = MAFRecord()
+      noheadrec = MAFRecord()
+      read!(headreader, headrec)
+      read!(noheadreader, noheadrec)
+      @test length(noheadrec) == length(headrec)
+      @test length(noheadrec) > 1
+      for i in 1:length(headrec)
+         @test headrec[i] == noheadrec[i]
+      end
+   end
+   @test done(headreader)
+   @test done(noheadreader)
+
+   # Multi buffer
+
+   longreader = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   shortreader = MAFReader(BufferedInputStream(IOBuffer(maffile), 512))
+   
+   while !done(longreader) 
+      longrec  = MAFRecord()
+      shortrec = MAFRecord()
+      read!(longreader, longrec)
+      read!(shortreader, shortrec)
+      @test length(shortrec) == length(longrec)
+      @test length(shortrec) > 1
+      for i in 1:length(shortrec)
+         @test shortrec[i] == longrec[i]
+      end
+   end
+   @test done(shortreader)
+   @test done(longreader)
+
+   # Bad Records
+   maffile = """
+##maf version=1 scoring=roast.v3.3
+a score=781.000000
+s hg19.chr22                16092278 1 +  51304566 C
+s panTro4.chr22             14470458 1 +  49737984 C
+s nomLeu3.chrUn_GL397501_2   1216368 1 -   1485088 C
+s chlSab1.chrUn_KE147573       66869 1 -     85383 C
+s monDom5.chr4              96780965 1 - 435153693 T
+s danRer7.chr3                323838 1 -  63268876 C
+s petMar2.GL501154             43910 1 -     71231 t
+
+a score=-50707.000000
+s hg19.chr22                     16092279 32 +  51304566 AGTCCCCAGGTGGT------CATGACACCTCAATTGGA
+s panTro4.chr22                  14470459 32 +  49737984 AGTCCCCAGGTGGT------CATGACACCTCAATTGGA
+s nomLeu3.chrUn_GL397501_2        1216369 32 -   1485088 AGTCCCCAGGTGGT------CATGACACTTCAACTGGA
+s chlSab1.chrUn_KE147573            66870 32 -     85383 AGTCCCCAGGTGAT------CATGACACCTTAACTGGA
+s monDom5.chr4                   96780966 24 - 435153693 TGACTCCAGCCAGA------GACGGAGCCC--------
+s falChe1.KB397375                  11884 29 +     36355 GACCCTTGTGAAAA------CATGAGGGCTGTGAA---
+s falPer1.KB390849                  40484 13 +     49439 AGCCCTTGTCTGA-------------------------
+s ficAlb2.chrUn_KE165385           131290 31 -    141484 -cctccccgagtat------cCTGCGACCCCAGATCGA
+s geoFor1.JH741012                   5677 32 -     10893 GGGCCCTTTGGGAA------GAGGACACTGCGACTGGA
+s taeGut2.chr26_EQ833276_random      8281 32 -     85973 AGCCCCTCAGCTGT------CCCCACACCTCTCCTGCA
+s pseHum1.KB221494                  45158 24 +     77128 gaccccacaatgac-------------cctcggttga-
+s galGal4.chrUn_JH375878              275 32 -      4229 AGCCCAGTggggga------ccccggagccaaagggga
+s pelSin1.JH208549                  94224 38 +    588315 GGCCCCAGGGCCAAATCCGTCCCTGGGTCCATATTCAA
+s danRer7.chr3                     323839 32 -  63268876 ATTATCCAACTAGA------CTTGGCTGTTTAGAAGAC
+s petMar2.GL501154                  43911 30 -     71231 --agttcacgtgag------ctctacaactcaggtgaa
+"""
+
+   noshort = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   noshort.minlen = 5
+   noshortrec = MAFRecord()
+   read!(noshort, noshortrec)
+   @test done(noshort)
+   @test length(noshortrec) == 15
+
+   noweak = MAFReader(BufferedInputStream(IOBuffer(maffile)))
+   noweak.minscore = 0.0
+   noweakrec = MAFRecord()
+   read!(noweak, noweakrec)
+   @test !done(noweak)
+   @test length(noweakrec) == 7
+   res = read!(noweak, MAFRecord())
+   @test done(noweak)
+   @test length(res) == 0
+
+   #Trailing newline
+   withnew = MAFReader(BufferedInputStream(IOBuffer(maffile * "\n")))
+   withnew.minlen = 5
+   withnewrec = MAFRecord()
+   read!(withnew, withnewrec)   
+   @test done(withnew)
+   @test length(withnewrec) == 15
+
+   #Test MAFRecord gap deletion
+   for i in 1:length(withnewrec)
+      @test length(withnewrec[i].sequence) == length("AGTCCCCAGGTGGT------CATGACACCTCAATTGGA")
+   end
+   deletegaps!(withnewrec)
+   for i in 1:length(withnewrec)
+      @test length(withnewrec[i].sequence) == length("AGTCCCCAGGTGGTCATGACACCTCAATTGGA")
+   end
+end
+
+@testset "Parsing MAF File & Stitching" begin
+   # Stitching adjacent MAF records
+   maflines = """
+   a score=23262.0
+   s hg16.chr7    27571001 38 + 158545518 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+   s panTro1.chr6 28741140 38 + 161576975 AAA-GGGAATGTTAACCAAATGA---ATTGTCTCTTACGGTG
+   s baboon.chr1    116834 38 +   4622798 AAA-GGGAATGTTAACCAAATGA---GTTGTCTCTTATGGTG
+   s rn3.chr4     81344243 40 + 187371129 -AA-GGGGATGCTAAGCCAATGAGTTGTTGTCTCTCAATGTG
+
+   a score=5062.0
+   s hg16.chr7    27571039 6 + 158545518 TAAAGA
+   s panTro1.chr6 28862317 6 + 161576975 TAAAGA
+   s baboon.chr1    241163 6 +   4622798 TAAAGA
+   s rn3.chr4     81444246 6 + 187371129 taagga
+
+   a score=6636.0
+   s hg16.chr7    27571045 13 + 158545518 gcagctgaaaaca
+   s panTro1.chr6 28869787 13 + 161576975 gcagctgaaaaca
+   s baboon.chr1    249182 13 +   4622798 gcagctgaaaaca
+   s mm4.chr6     53310102 13 + 151104725 ACAGCTGAAAATA
+   """
+
+   tree = parsenewick("(((((hg16:0.006591,panTro1:0.006639):0.002184,baboon:0.009411):0.009942,
+                            mm4:0.018342):0.014256,rn3:0.036199):0.021496,unused:0.04);")
+
+   reader = MAFReader(BufferedInputStream(IOBuffer(maflines)))
+
+   col = readmaf!( reader, tree.index )
+   for i in col
+      for j in i.metadata.species
+         @test length(j.sequence) == length(i.metadata.species[1].sequence)
+      end
+   end
+   
+   println(col)
+
+   #=MAFRecord(MAFSpecies[
+   MAFSpecies("hg16","chr7",27571001,true,   AAAGGGAATGTTAACCAAATGAATTGTCTCTTACGGTGTAAAGAGCAGCTGAAAACA),
+   MAFSpecies("panTro1","chr6",28741140,true,AAAGGGAATGTTAACCAAATGAATTGTCTCTTACGGTGTAAAGAGCAGCTGAAAACA),
+   MAFSpecies("baboon","chr1",116834,true,   AAAGGGAATGTTAACCAAATGAGTTGTCTCTTATGGTGTAAAGAGCAGCTGAAAACA),
+   MAFSpecies("mm4","chr6",53215344,true,    -AAGGGAATGTTAAGCAAACGAATTGTCTCTCAGTGTGTAAAGAACAGCTGAAAATA),
+   MAFSpecies("rn3","chr4",81344243,true,    -AAGGGGATGCTAAGCCAATGAGTTGTCTCTCAATGTGTAAGGA-------------)
+   =#
+end
+
+@testset "Newick tree building and Felsenstein's algorithm" begin
+   tree = parsenewick("(((((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.009411):0.009942,
+                            ponAbe2:0.018342):0.014256,rheMac2:0.036199):0.021496,papHam1:0.04);")
+   names = collect(tree.root)
+   expnames = ["hg19", "panTro2", "gorGor1", "ponAbe2", "rheMac2", "papHam1"]
+   @test length(names) == length(expnames) == length(tree.order)
+   for i in 1:length(names)
+      @test names[i] == expnames[i] == tree.order[i]
+   end
+   # Test rate matrix -> probability
+   Q = [-3.0 1.0 1.0 1.0
+        1.0 -3.0 1.0 1.0
+        1.0 1.0 -3.0 1.0
+        1.0 1.0 1.0 -3.0]
+   set_prob_mat!( tree, Q )
+   hg19_node = tree.root.left.value.left.value.left.value.left.value.left.value
+   @test hg19_node.label == "hg19"
+   @test hg19_node.prob == expm(Q*0.006591)
+
+   # Test likelihood function
+   tree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.5);")
+   set_prob_mat!( tree, GTR_SINGLE_Q )
+
+   #=
+   hg19 length=0.006591
+   A->G 0.0125902
+   C->G 0.00378768
+   G->G 0.985462
+   T->G 0.00314851
+   =#
+
+   hg19 = expm(GTR_SINGLE_Q*0.006591) * [0,0,1,0]
+   @test length(hg19) == 4
+
+   #=
+   panTro length=0.006639
+   A->G 0.0126803 
+   C->G 0.00381511
+   G->G 0.985357  
+   T->G 0.00317139
+   =#
+
+   panTro = expm(GTR_SINGLE_Q*0.006639) * [0,0,1,0]
+   @test length(panTro) == 4
+
+   #=
+   hgpanAnc length=0.002184
+   A->A 0.000158486
+   A->C 2.07831e-7 
+   A->G 4.64153e-7 
+   A->T 1.8804e-7
+
+   C->A 2.28759e-8
+   C->C 1.43597e-5
+   C->G 1.51679e-8
+   C->T 5.20155e-8
+
+   G->A 0.00409759
+   G->C 0.00122328
+   G->G 0.966317  
+   G->T 0.0010147 
+
+   T->A 1.47604e-8
+   T->C 3.7086e-8 
+   T->G 8.97429e-9
+   T->T 9.92702e-6
+
+   *->A 0.0042561136363
+   *->C 0.001237884617
+   *->G 0.9663174882951899
+   *->T 0.0010248670755000002
+   =#
+
+   hgpanAnc = expm(0.002184*GTR_SINGLE_Q) * (hg19 .* panTro)
+   @test length(hgpanAnc) == 4
+
+   @test round(0.0042561136363, 6) == round(hgpanAnc[1], 6)
+   @test round(0.001237884617, 6) == round(hgpanAnc[2], 6)
+   @test round(0.9663174882951899, 6) == round(hgpanAnc[3], 6)
+   @test round(0.0010248670755000002, 6) == round(hgpanAnc[4], 6)
+
+   @test round(likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
+
+   smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.15);")
+   pairtree = deepcopy(smtree)
+   set_prob_mat!( smtree,   GTR_SINGLE_Q )
+   set_prob_mat!( pairtree, GTR_PAIRED_Q )
+
+   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   @test single_p > paired_p
+
+   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   @test paired_p > single_p
+
+end
+
+@testset "RNADuplexArray Building and Traversal" begin
+
+   # test depth and sai composition
+   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
+   rsuf = RNASuffixArray{DNAAlphabet{2},UInt8,UInt8}( seq, 10 )
+   for i in 1:length(rsuf.sai)-1
+      @test <=( rsuf.depth, i, rsuf.depth, i+1 )
+   end
+
+   push!( rsuf, reverse(seq) )
+   for i in 1:length(rsuf.sai)-1
+      @test <=( rsuf.depth, i, rsuf.depth, i+1 )
+   end
+
+   # test basic duplex array building and traversal
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
+   @test length(collect(traverse( rda, 10:50, bulge_max=0 ), minenergy=-15.0)) == 0
+   @test length(collect(traverse( rda, 10:50, bulge_max=1 ), minenergy=-15.0)) == 1
+   @test length(traverse( rda, 10:50, bulge_max=1 )) == 1
+   res = shift!(collect(traverse( rda, 10:50, bulge_max=1 )))
+   @test first(res.first) == 1 && last(res.first) == 13
+   @test first(res.last) == 24 && last(res.last) == length(seq)
+
+   # test stitching of smaller duplex collection
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 10 )
+   res = collect(traverse(rda, bulge_max=1, minfold=-6.0))
+   @test length(res) == 5
+   i = 1
+   for j in res
+      @test j.first.first == i
+      i += 1
+   end
+   sti = stitch(traverse(rda, bulge_max=1, minfold=-6.0))
+   @test length(collect(sti)) == 1
+
+
+   # TODO
    # test fwd and rev sequences for intermolecular constructor
-   # test vector of sequences constructor
+   rda  = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, seq, 25 )
+   res  = collect(traverse( rda, bulge_max=1 ), minenergy=-15.0)
+
+   # test push! additional sequences
+   prda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 25 )
+   push!( prda, seq )
+   pres = collect(traverse( prda, bulge_max=1 ), minenergy=-15.0)
+
+   # test vector constructor
 
    # test larger scale example hnRNP D and genome offsets
 
    # test recursive stitching
    # test iterval collection and filtering
+
 end
+
+@testset "RNADuplexArray EvoDuplexes: building, traversal, stitching, scoring" begin
+      maffile = """
+##maf version=1 scoring=roast.v3.3
+a score=-50707.000000
+s hg19.chr22                     16092279 32 +  51304566 AAATGATGCCGCAGGGG------GGGGGGTGCGGCAATCATTT
+s panTro4.chr22                  14470459 32 +  49737984 AAATGATGCCGCAGGGG------GGGGGGTGCGGCAATCATTT
+""" 
+   mafread = MAFReader(BufferedInputStream(IOBuffer(maffile * "\n")))
+   mafrec = MAFRecord()
+   read!(mafread, mafrec)
+   @test done(mafread)
+   @test length(mafrec) == 2
+
+   deletegaps!(mafrec)
+   tree = parsenewick("(hg19:0.006591,panTro4:0.006639);")
+   
+   # correct match of tree species and maf file
+   phylosuf = RNASuffixArray{DNAAlphabet{4}, UInt16, UInt8}( mafrec, tree, 10 )
+   @test phylosuf.depth == phylosuf.species[1]
+   @test length(phylosuf.species) == 1
+ 
+   # missing species end of tree from maf
+   tree = parsenewick("((hg19:0.006591,panTro4:0.006639):0.002184,gorGor1:0.009411);")
+   phylosuf = RNASuffixArray{DNAAlphabet{4}, UInt16, UInt8}( mafrec, tree, 10 )
+   @test phylosuf.depth == phylosuf.species[1]
+   @test phylosuf.depth != phylosuf.species[2]
+   @test length(phylosuf.species) == 2
+
+   # missing species middle of tree from maf
+   mafrec[2].name = "gorGor1"  
+   tree = parsenewick("((hg19:0.006591,panTro4:0.006639):0.002184,gorGor1:0.009411);")
+   phylosuf = RNASuffixArray{DNAAlphabet{4}, UInt16, UInt8}( mafrec, tree, 10 )
+   @test phylosuf.depth != phylosuf.species[1]
+   @test phylosuf.depth == phylosuf.species[2]
+   @test length(phylosuf.species) == 2
+
+   # compare to single seq
+   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( seq, 10 )
+   fwd_dep = rda.fwd.depth
+   @test fwd_dep == phylosuf.depth
+
+   # test push! MAF record
+   push!( phylosuf, mafrec, tree )
+   @test length(phylosuf.depth[1]) == length(phylosuf.species[2][1])
+   for i in 1:length(phylosuf.sai)-1
+      @test <=( phylosuf.depth, i, phylosuf.depth, i+1 )
+      @test <=( phylosuf.species[2], i, phylosuf.species[2], i+1 )
+   end 
+      
+   # test build RNADuplexArray from MAF file...
+   smtree   = parsenewick("((hg19:0.006591,panTro4:0.006639):0.002184,gorGor1:0.15);")
+   pairtree = deepcopy(smtree)
+   set_prob_mat!( smtree, GTR_SINGLE_Q )
+   set_prob_mat!( pairtree, GTR_PAIRED_Q )
+
+   # test stitching of EvoDuplexes with toy case
+   rda = RNADuplexArray{DNAAlphabet{2},UInt8,UInt8}( mafrec, smtree, 10 )
+   res = collect(traverse( rda, bulge_max=1, single=smtree, minfold=-6.0 ))
+   for i in 1:length(res)-1
+      sti = stitch( res[i], res[i+1], 3, 3 )
+      println(sti)
+      @test !isnull(sti)
+      left,right = strings(sti.value.duplex)
+      left_nts   = collect(DNASequence(RNASequence(left)))
+      right_nts  = collect(DNASequence(RNASequence(right)))
+      @test sti.value.duplex.alignment[1,1:length(left_nts)] == left_nts
+      @test sti.value.duplex.alignment[1,length(left_nts)+1:end] == reverse(right_nts)
+      @test length(sti.value.duplex.bracket) == length(left_nts) + length(right_nts)
+      @test sti.value.duplex.first == length(left_nts)
+   end
+
+   # try stitching of EvoDuplexes with complex real-world test case
+   maffile = """
+##maf version=1 scoring=roast.v3.3
+a score=-50707.000000
+s hg19.chr22                     16092279 32 +  51304566 ACTCTATCTTAAGCTTTTCTGCTTTTTAATTATCCTGAAGTAAAGATCTTTGCTGATCTTCTGACTTTAGTGAACCTATTAATGTGCTGCAGGCCCCAGTCAAAACTGGAACCAGGGATATAGTAACTATTGGAATCAAG--------------AGACCAGTTCTTGGAGTTATATCCTTTCTTAGGTGACTAGGCCTGCTGCACAATAATAGGTTAATTAAAGTCAGAAGAAGGTCAGCAAAGATGGATTGGGTGAGATTGGGGCCCTTTTCTTAGAAGGGCAGAGATACTAAGCACTG
+s panTro4.chr22                  14470459 32 +  49737984 ACTCTATCTTAAGCTTTTCTGCTTTTTAATTATCCTGAAGTAAAGATCTTTGCTGATCTTCTGACTTTAGTGAACCTATTAATGTGCTGCAGGCCCCAGTCAAAACTGGAACCAGGGATATAGTAACTATTGGAATCAAG--------------AGACCAGTTCTTGGAGTTATATCCTTTCTTAGGTGACTAGGCCTGCTGCACAATAATAGGTTAATTAAAGTCAGAAGAAGGTCAGCAAAGATGGATTGGGTGAGATTGGGGCCCTTTTCTTAGAAGGGCAGAGATACTAAGCACTG
+"""
+   mafread = MAFReader(BufferedInputStream(IOBuffer(maffile * "\n")))
+   mafrec = MAFRecord()
+   read!(mafread, mafrec)
+   @test done(mafread)
+   @test length(mafrec) == 2
+
+   rda = RNADuplexArray{DNAAlphabet{2},UInt16,UInt16}( mafrec, smtree, 50 )
+   res = collect(traverse( rda, bulge_max=3, mismatch_max=3, single=smtree, minfold=-6.0 ))
+   for i in 1:length(res)-1
+      sti = stitch( res[i], res[i+1], 3, 3 )
+      isnull(sti) && continue
+      println(res[i])
+      println(res[i+1])
+      println(sti)
+      left,right = strings(sti.value.duplex)
+      left_nts   = collect(DNASequence(RNASequence(left)))
+      right_nts  = collect(DNASequence(RNASequence(right)))
+      @test sti.value.duplex.alignment[1,1:length(left_nts)] == left_nts
+      @test sti.value.duplex.alignment[1,length(left_nts)+1:end] == reverse(right_nts)
+      @test length(sti.value.duplex.bracket) == length(left_nts) + length(right_nts)
+      @test sti.value.duplex.first == length(left_nts)
+   end
+
+   # score using EvoFold phylo-likelihood model
+   # str,unstr = score!(res[1].duplex, smtree, pairtree)
+   # @test str - unstr > 0
+
+end
+

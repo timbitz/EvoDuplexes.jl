@@ -3,8 +3,10 @@
 type DuplexInterval{T}
    first::Interval{T}  # fwd helical region 
    last::Interval{T}   # rev helical region
-   duplex::RNADuplex   # rna duplex formed
+   duplex::AbstractDuplex   # rna duplex formed
 end
+
+distance( int::DuplexInterval ) = (int.last.first - int.first.last) - 1
 
 const ZERO_DUPLEX_INTERVAL = DuplexInterval(Interval("", 0, 0), Interval("", 0, 0), RNADuplex())
 
@@ -34,13 +36,14 @@ function Base.minimum{T}( col::DuplexCollection{T}; default::Float64=0.0 )
    minentry
 end
 
-function Base.collect{T}( col::DuplexCollection{T}; minlength::Int=1, minenergy::Float64=0.0 )
+function Base.collect{T}( col::DuplexCollection{T}; minlength::Int=1, minenergy::Float64=0.0, range::UnitRange=1:typemax(Int) )
    res = Vector{DuplexInterval{T}}()
    for n in keys(col.names)
       for b in sort(collect(keys(col.names[n])))
          for d in col.names[n][b]
-            if npairs( d.duplex.path ) >= minlength &&
-               energy( d.duplex ) <= minenergy
+            if npairs( d.duplex ) >= minlength &&
+               energy( d.duplex ) <= minenergy &&
+               d.last.first - d.first.last in range
                 push!( res, d )
             end
          end
@@ -141,14 +144,14 @@ end
    end
 end
 
-@inline function findbetter{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}, left::Bool=true)
+@inline function findbetter{T, K}(dict::Dict{K,Vector{DuplexInterval{T}}}, key::K, int::DuplexInterval{T}, left::Bool=true, rate::Float64=0.99)
    !haskey( dict, key ) && (return false)
    const vect = dict[key]
    i = left ? searchsortedfirst( vect, int, lt=precedes ) : 1
    while i <= length(vect)
       if left && precedes( int, vect[j] )
          return false
-      elseif isoverlapping( vect[i], int ) 
+      elseif isoverlapping( vect[i], int, rate ) 
          if energy(vect[i].duplex) < energy(int.duplex)
             return true
          else
@@ -188,6 +191,7 @@ end
    pushinterval!( vect, int, rate=rate )
 end
 
+join_duplex!( left::RNADuplex, right::RNADuplex, npairs, npairs_first, npairs_last ) = push!( left, path(right)[npairs+1:end] )
 
 # This function 'stitches' two overlapping and compatible
 # duplexes together into one.
@@ -196,9 +200,9 @@ end
    if isoverlapping( a, b )
       npairs_first = a.first.last - b.first.first + 1
       npairs_last  = b.last.last  - a.last.first  + 1
-      afirst,alast = strings(a.duplex.path)
-      bfirst,blast = strings(b.duplex.path)
-      npairs = index_npairs(b.duplex.path, npairs_first, npairs_last)
+      afirst,alast = strings(path(a.duplex))
+      bfirst,blast = strings(path(b.duplex))
+      npairs = index_npairs(path(b.duplex), npairs_first, npairs_last)
       if abs(npairs_first - npairs_last) <= max_bulge &&
          length(bfirst) - npairs_first > 0 &&
          length(blast)  - npairs_last  > 0 &&
@@ -208,7 +212,7 @@ end
          alast[end-npairs_last+1:end]   == blast[1:npairs_last]
 
          spliced = deepcopy(a)
-         push!( spliced.duplex, b.duplex.path[npairs+1:end] )
+         join_duplex!( spliced.duplex, b.duplex, npairs, npairs_first, npairs_last )
          spliced.first.last = b.first.last
          spliced.last.first = b.last.first
          aspliced, bspliced = strings(spliced.duplex)
@@ -223,8 +227,8 @@ end
             spliced.last.last  - spliced.last.first  + 1 == length(bspliced) &&
             energy(spliced.duplex) < energy(a.duplex) && 
             energy(spliced.duplex) < energy(b.duplex) &&
-            nbulges(spliced.duplex.path) <= max_bulge && 
-            nmismatches(spliced.duplex.path) <= max_mis
+            nbulges(spliced.duplex) <= max_bulge && 
+            nmismatches(spliced.duplex) <= max_mis
              ret = Nullable(spliced)
          end
       end
@@ -259,7 +263,7 @@ function stitch!{T}( res::Vector{DuplexInterval{T}}, vect::Vector{DuplexInterval
    for i in 1:length(vect)
       for j in i:searchsortedlast( vect, vect[i], lt=precedes )
          j == i && continue
-         sval = stitch( vect[i], vect[j], 5, 5 )
+         sval = stitch( vect[i], vect[j], 3, 3 )
          if !isnull(sval)
             pushinterval!( res, sval.value )
          end
