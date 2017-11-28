@@ -4,4 +4,4 @@
 
 A Julia implementation utilizing RNA suffix array traversal to fold all local and long-range RNA duplexes.
 
-Docs coming soon. (this code is pre-release)
+Docs coming soon, examples in test/runtests.jl. (this code is pre-release)
