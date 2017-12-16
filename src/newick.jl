@@ -1,5 +1,3 @@
-### 'parsenewick' function based on: https://gist.github.com/porterjamesj/7672080
-### License is CC-BY-NC
 
 # Format forced into left/right children, and additional markov probability matrix functionality added.
 type PhyloNode
@@ -20,6 +18,8 @@ end
 
 const EMPTY_TREE = PhyloTree(EMPTY_NODE, String[], Dict{String,Int}())
 
+### 'parsenewick' function based on: https://gist.github.com/porterjamesj/7672080
+### License is CC-BY-NC
 function parsenewick(newick::String)
     newick = rstrip(newick,';')
     newick = replace(newick,":","+")
@@ -74,6 +74,30 @@ function parsenewick(newick::Expr)
     PhyloNode(name,left,right,length, Array{Float64,2}())
 end
 
+# Tree collection
+function Base.collect( root::PhyloNode )
+   res = Vector{String}()
+   function dfs_names!( vec::Vector{String}, node::PhyloNode )
+      if !isnull(node.left) && !isnull(node.right)
+         dfs_names!( vec, node.left.value )
+         dfs_names!( vec, node.right.value )
+      else
+         push!( vec, node.label )
+      end
+      vec
+   end
+   dfs_names!( res, root )
+end
+
+function index_dict( labels::Vector{String} )
+   ret = Dict{String,Int}()
+   for i in 1:length(labels)
+      ret[labels[i]] = i
+   end
+   ret
+end
+
+# Matrix setting and branch length modification functions
 # Set P = exp(Q*b) for each node    
 set_prob_mat!(tree::PhyloTree, Q::Array{Float64,2}) = set_prob_mat!(tree.root, Q)
 
@@ -99,28 +123,6 @@ function extend_branches!(node::PhyloNode, multiplier::Float64)
       node.length *= multiplier
    end
    node
-end
-
-function Base.collect( root::PhyloNode )
-   res = Vector{String}()
-   function dfs_names!( vec::Vector{String}, node::PhyloNode )
-      if !isnull(node.left) && !isnull(node.right)
-         dfs_names!( vec, node.left.value )
-         dfs_names!( vec, node.right.value )
-      else
-         push!( vec, node.label )
-      end
-      vec
-   end
-   dfs_names!( res, root )
-end
-
-function index_dict( labels::Vector{String} )
-   ret = Dict{String,Int}()
-   for i in 1:length(labels)
-      ret[labels[i]] = i
-   end
-   ret
 end
 
 # Implementation of Felsenstein's pruning algorithm
