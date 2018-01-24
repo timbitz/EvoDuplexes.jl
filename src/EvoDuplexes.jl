@@ -2,9 +2,9 @@
 
 module EvoDuplexes
 
-using Bio
-using Bio.Seq
-using Bio.Intervals
+using BioSymbols
+using BioSequences
+using GenomicIntervals
 using IntervalTrees
 using SuffixArrays
 using Gadfly
@@ -17,14 +17,12 @@ import Automa
 import Automa.RegExp: @re_str
 import Compat: take!
 
-importall Bio.Intervals
-
 include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
-include("../src/trie.jl")
+#include("../src/trie.jl")
 include("../src/mafreader.jl")
 include("../src/gtrmodel.jl")
 include("../src/newick.jl")
