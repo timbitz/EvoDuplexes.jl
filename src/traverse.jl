@@ -30,9 +30,9 @@ const RNAMISMATCH = [(RNA_A, RNA_A), (RNA_A, RNA_C),
                      (RNA_G, RNA_A), (RNA_G, RNA_G),
                      (RNA_U, RNA_C), (RNA_U, RNA_U)]
 
-const PairsType = Vector{Tuple{Bio.Seq.Nucleotide, Bio.Seq.Nucleotide}}
+const PairsType = Vector{Tuple{DNA, DNA}}
 
-function twobitalpha{S <: Bio.Seq.Sequence}( seq::S )
+function twobitalpha{S <: BioSequences.Sequence}( seq::S )
    t = eltype(seq)
    if t == DNANucleotide
       return DNAAlphabet{2}
@@ -43,23 +43,23 @@ function twobitalpha{S <: Bio.Seq.Sequence}( seq::S )
    end
 end
 
-pairs{n}(::Type{Bio.Seq.DNAAlphabet{n}})      = DNAPAIRS
-pairs{n}(::Type{Bio.Seq.RNAAlphabet{n}})      = RNAPAIRS
-gaps{n}(::Type{Bio.Seq.DNAAlphabet{n}})       = DNAGAPS
-gaps{n}(::Type{Bio.Seq.RNAAlphabet{n}})       = RNAGAPS
-mismatches{n}(::Type{Bio.Seq.DNAAlphabet{n}}) = DNAMISMATCH
-mismatches{n}(::Type{Bio.Seq.RNAAlphabet{n}}) = RNAMISMATCH
+pairs{n}(::Type{BioSequences.DNAAlphabet{n}})      = DNAPAIRS
+pairs{n}(::Type{BioSequences.RNAAlphabet{n}})      = RNAPAIRS
+gaps{n}(::Type{BioSequences.DNAAlphabet{n}})       = DNAGAPS
+gaps{n}(::Type{BioSequences.RNAAlphabet{n}})       = RNAGAPS
+mismatches{n}(::Type{BioSequences.DNAAlphabet{n}}) = DNAMISMATCH
+mismatches{n}(::Type{BioSequences.RNAAlphabet{n}}) = RNAMISMATCH
 
 gap{n}(::Type{DNAAlphabet{n}})                = DNA_Gap
 gap{n}(::Type{RNAAlphabet{n}})                = RNA_Gap
 
 onehot{I <: Integer}(x::I) = 0x01 << (x-1)
 
-encodeindex{A <: Alphabet}(::Type{A}, x::Bio.Seq.Nucleotide) = (x == DNA_Gap || x == RNA_Gap) ? 0 : Bio.Seq.encode(A, x)+1
+encodeindex{A <: Alphabet, N <: NucleicAcid}(::Type{A}, x::N) = (x == DNA_Gap || x == RNA_Gap) ? 0 : BioSequences.encode(A, x)+1
 index{A <: Alphabet}(::Type{A}, func=pairs) = map( x->map(y->encodeindex(A, y), x), func(A) )
 
 revoffset( x::Int, seq::BioSequence ) = revoffset( x, length(seq) )
 revoffset( x, len ) = len - x + 1
 
-Base.reverse( seq::Bio.Seq.ReferenceSequence ) = Bio.Seq.ReferenceSequence( reverse( String( seq ) ) )
+Base.reverse( seq::BioSequences.ReferenceSequence ) = BioSequences.ReferenceSequence( reverse( String( seq ) ) )
 

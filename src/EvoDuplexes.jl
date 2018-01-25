@@ -4,7 +4,7 @@ module EvoDuplexes
 
 using BioSymbols
 using BioSequences
-using GenomicIntervals
+using GenomicFeatures
 using IntervalTrees
 using SuffixArrays
 using Gadfly
@@ -16,6 +16,9 @@ using Libz
 import Automa
 import Automa.RegExp: @re_str
 import Compat: take!
+
+importall BioSymbols
+importall GenomicFeatures
 
 include("../src/pairs.jl")
 include("../src/energy.jl")

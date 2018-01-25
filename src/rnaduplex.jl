@@ -55,7 +55,7 @@ end
 function Base.show( io::IO, duplex::RNADuplex )
    function print_index( io, idx )
       val = idx != 15 ? UInt8(0x01 << (idx - 1)) : UInt8(0)
-      print(io, convert(RNANucleotide, val))
+      print(io, convert(RNA, val))
    end
    print(io, "\n   ")
    for i in duplex.path

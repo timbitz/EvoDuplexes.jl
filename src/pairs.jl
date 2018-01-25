@@ -89,8 +89,8 @@ const INVALIDS = [XA_INVALID, XC_INVALID,
 Base.convert{NP <: NucleotidePair}(::Type{NP}, x::UInt8) = reinterpret(NP, x)
 Base.convert(::Type{UInt8}, x::NucleotidePair)           = reinterpret(UInt8, x)
 
-function Base.convert{NP <: NucleotidePair}(::Type{NP}, first::Bio.Seq.Nucleotide,
-                                                        last::Bio.Seq.Nucleotide)
+function Base.convert{NP <: NucleotidePair, X <: NucleicAcid, Y <: NucleicAcid}(::Type{NP}, first::X,
+                                                                                             last::Y)
    enc  = reinterpret(UInt8, first) << 4
    enc |= reinterpret(UInt8, last)
    reinterpret(NP, enc)
@@ -116,7 +116,7 @@ function index(x::RNABulge)
    trailing_zeros(reinterpret(UInt8, x)) + 1
 end
 
-isgap( nuc::Bio.Seq.Nucleotide ) = reinterpret(UInt8, nuc) == 0 ? true : false
+isgap{N <: NucleicAcid}( nuc::N ) = reinterpret(UInt8, nuc) == 0 ? true : false
 
 isbulge(x::RNAPair)     = false
 isbulge(x::RNAMismatch) = false

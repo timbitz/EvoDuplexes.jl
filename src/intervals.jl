@@ -85,9 +85,9 @@ end
 @inline isoverlapping(x::DuplexInterval, y::DuplexInterval, ident::Float64) = isoverlapping(x.first, y.first, ident) && 
                                                                               isoverlapping(x.last, y.last, ident) ? true : false
 
-@inline precedes(x::DuplexInterval, y::DuplexInterval) = Bio.Intervals.precedes(x.first, y.first)
+@inline precedes(x::DuplexInterval, y::DuplexInterval) = GenomicFeatures.precedes(x.first, y.first)
 @inline Base.isless(x::DuplexInterval, y::DuplexInterval) = (x.first.first == y.first.first && x.first.last == y.first.last) ? 
-                                                             Bio.Intervals.isless(x.last, y.last) : Bio.Intervals.isless(x.first, y.first)
+                                                             GenomicFeatures.isless(x.last, y.last) : GenomicFeatures.isless(x.first, y.first)
 
 Base.:<(x::DuplexInterval, y::DuplexInterval) = isless( x, y )
 
@@ -211,10 +211,13 @@ join_duplex!( left::RNADuplex, right::RNADuplex, npairs, npairs_first, npairs_la
          afirst[end-npairs_first+1:end] == bfirst[1:npairs_first] && 
          alast[end-npairs_last+1:end]   == blast[1:npairs_last]
 
-         spliced = deepcopy(a)
+         #spliced = deepcopy(a)
+         spliced_first = Interval{T}( a.first.seqname, a.first.first, b.first.last, a.first.strand, a.first.metadata )
+         spliced_last  = Interval{T}( a.last.seqname,  b.last.first,  a.last.last,  a.last.strand,  a.last.metadata )
+         spliced = DuplexInterval{T}( spliced_first, spliced_last, deepcopy(a.duplex) )
          join_duplex!( spliced.duplex, b.duplex, npairs, npairs_first, npairs_last )
-         spliced.first.last = b.first.last
-         spliced.last.first = b.last.first
+         #spliced.first.last = b.first.last
+         #spliced.last.first = b.last.first
          aspliced, bspliced = strings(spliced.duplex)
               #println("$a\n$b\n")
               #println("$afirst : $alast")

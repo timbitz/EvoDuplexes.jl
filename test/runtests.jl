@@ -1,12 +1,12 @@
 
 using Base.Test
-using Bio.Seq
-using Bio.Intervals
+using BioSymbols
+using BioSequences
+using GenomicFeatures
 using SuffixArrays
 using Gadfly
 using Automa
 
-using Bio.Seq
 using BufferedStreams
 using Libz
 
@@ -14,14 +14,15 @@ import Automa
 import Automa.RegExp: @re_str
 import Compat: take!
 
-importall Bio.Intervals
+importall BioSymbols
+importall GenomicFeatures
 
 include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
-include("../src/trie.jl")
+#include("../src/trie.jl")
 include("../src/mafreader.jl")
 include("../src/gtrmodel.jl")
 include("../src/newick.jl")
@@ -444,7 +445,7 @@ end
 
 @testset "RNA Trie Building" begin
 
-   # Vestigial tests for a deprecated data structure
+   #= Vestigial tests for a deprecated data structure
 
    A = Bio.Seq.DNAAlphabet{2}
    trie = RNATrie{A,String}( 1:3 )
@@ -482,18 +483,19 @@ end
    end 
    @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
    @test nodecount( trie ) == 9
+   =#
 end
 
 @testset "Duplex Trie Building and Traversal" begin
 
-   # Duplex Trie deprecated...
+   #= Duplex Trie deprecated...
 
    seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
    trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
    @test length(traverse( trie, 8:50, bulge_max=0 )) == 0
    val = traverse( trie, 8:50, bulge_max=1 )
    @test length(val) == 1
-
+   =#
 end
 
 @testset "MAF Parser" begin
@@ -762,19 +764,19 @@ end
    @test round(0.9663174882951899, 6) == round(hgpanAnc[3], 6)
    @test round(0.0010248670755000002, 6) == round(hgpanAnc[4], 6)
 
-   @test round(likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
+   @test round(likelihood( tree, DNA[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
 
    smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.15);")
    pairtree = deepcopy(smtree)
    set_prob_mat!( smtree,   GTR_SINGLE_Q )
    set_prob_mat!( pairtree, GTR_PAIRED_Q )
 
-   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
-   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   single_p = likelihood( smtree, DNA[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, DNA[DNA_C, DNA_C, DNA_G] )
+   paired_p = likelihood( pairtree, DNA[DNA_G, DNA_G, DNA_G], DNA[DNA_C, DNA_C, DNA_G] )
    @test single_p > paired_p
 
-   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
-   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   single_p = likelihood( smtree, DNA[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, DNA[DNA_C, DNA_C, DNA_T] )
+   paired_p = likelihood( pairtree, DNA[DNA_G, DNA_G, DNA_G], DNA[DNA_C, DNA_C, DNA_T] )
    @test paired_p > single_p
 
 end

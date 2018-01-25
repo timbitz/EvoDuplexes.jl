@@ -1,13 +1,13 @@
 
 type EvoDuplex <: AbstractDuplex
    duplex::RNADuplex
-   alignment::Array{Bio.Seq.Nucleotide,2}
+   alignment::Array{DNA,2}
    first::Int
    bracket::Vector{Char}
    score::Float64
 
    function EvoDuplex( rdup::RNADuplex, tree::PhyloTree, dsa::RNADuplexArray, fwd_index, rev_index )
-      alignment = Array{Bio.Seq.Nucleotide,2}(length(tree.order), sum(lengths(rdup.path)))
+      alignment = Array{DNA,2}(length(tree.order), sum(lengths(rdup.path)))
       first   = 1
       last    = size(alignment, 2)
       bracket = Vector{Char}(size(alignment, 2))
@@ -15,14 +15,14 @@ type EvoDuplex <: AbstractDuplex
       for k in 1:length(rdup.path)
          if isbulge(rdup[k]) && isfiveprime(rdup[k])
             i += 1
-            col = Bio.Seq.Nucleotide[dsa.fwd.species[s][i][fwd_index] for s in 1:length(tree.order)-1]
+            col = DNA[dsa.fwd.species[s][i][fwd_index] for s in 1:length(tree.order)-1]
             unshift!(col, dsa.fwd.depth[i][fwd_index])
             alignment[:,first] = col
             bracket[first] = '.'
             first += 1
          elseif isbulge(rdup[k]) && !isfiveprime(rdup[k])
             j += 1
-            col = Bio.Seq.Nucleotide[dsa.rev.species[s][j][rev_index] for s in 1:length(tree.order)-1] 
+            col = DNA[dsa.rev.species[s][j][rev_index] for s in 1:length(tree.order)-1] 
             unshift!(col, dsa.rev.depth[j][rev_index])
             alignment[:,last] = col
             bracket[last] = '.'
@@ -30,8 +30,8 @@ type EvoDuplex <: AbstractDuplex
           else
             i += 1
             j += 1
-            const lcol = Bio.Seq.Nucleotide[dsa.fwd.species[s][i][fwd_index] for s in 1:length(tree.order)-1]
-            const rcol = Bio.Seq.Nucleotide[dsa.rev.species[s][j][rev_index] for s in 1:length(tree.order)-1]
+            const lcol = DNA[dsa.fwd.species[s][i][fwd_index] for s in 1:length(tree.order)-1]
+            const rcol = DNA[dsa.rev.species[s][j][rev_index] for s in 1:length(tree.order)-1]
             unshift!(lcol, dsa.fwd.depth[i][fwd_index])
             unshift!(rcol, dsa.rev.depth[j][rev_index])
             #println("dsa.rev.depth $j $rev_index")
@@ -182,9 +182,9 @@ const PI_MATRIX = [0.0 0.0 0.0 1.0
                    0.0 1.0 0.0 1.0
                    1.0 0.0 1.0 0.0]
 
-delta( a::Bio.Seq.Nucleotide, b::Bio.Seq.Nucleotide ) = a == b ? 1 : 0
+delta( a::DNA, b::DNA ) = a == b ? 1 : 0
 
-function pi_matrix( a::Bio.Seq.Nucleotide, b::Bio.Seq.Nucleotide )
+function pi_matrix( a::DNA, b::DNA )
    if isgap( a ) || isgap( b ) 
       return 0.0
    else
@@ -196,7 +196,7 @@ end
 
 # Calculated as described by Hofacker et al. Journal of Molecular Biology 2002.
 # https://www.ncbi.nlm.nih.gov/pubmed/12079347
-function covariance_score( a::Vector{Bio.Seq.Nucleotide}, b::Vector{Bio.Seq.Nucleotide} )
+function covariance_score( a::Vector{DNA}, b::Vector{DNA} )
    denom = binomial(length(a), 2)
    numer = 0.0
    pairs = 0

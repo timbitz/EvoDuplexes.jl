@@ -1,4 +1,4 @@
-# Code based on Automa.jl multi-line 'FASTA' example:
+# Code modified and expanded from Automa.jl multi-line 'FASTA' example:
 # https://github.com/BioJulia/Automa.jl/blob/master/example/fasta.jl 
 
 const re = Automa.RegExp
@@ -164,9 +164,9 @@ function Base.reverse!( maf::MAFRecord )
    end
 end
 
-function Bio.Seq.reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
+function BioSequences.reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
    for s in mblock.species
-      Bio.Seq.reverse_complement!( s.sequence )
+      BioSequences.reverse_complement!( s.sequence )
       if strandflip
          s.strand = s.strand ? false : true
       end
