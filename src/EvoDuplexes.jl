@@ -63,7 +63,6 @@ export RNADuplex,
        GTR_SINGLE_Q,
        GTR_PAIRED_Q,
        loadbed,
-       expandbed!,
        writebed
 
 end
