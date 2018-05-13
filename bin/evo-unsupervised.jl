@@ -18,6 +18,7 @@ using MultivariateStats
 
 unshift!( LOAD_PATH, dir * "/../src" )
 using EvoDuplexes
+using EvoDuplexes: score, score!
 
 function parse_cmd()
    s = ArgParseSettings()
@@ -53,32 +54,36 @@ function main()
    pairtree = deepcopy(neutraltree)
    constree = deepcopy(neutraltree)
 
-   extend_branches!( constree,    0.5 )
+   extend_branches!( constree,    0.33 )
    extend_branches!( neutraltree, 1.0 )
-   extend_branches!( pairtree,    0.5 )
+   extend_branches!( pairtree,    0.33 )
 
    set_prob_mat!( neutraltree, GTR_SINGLE_Q )
    set_prob_mat!( constree,    GTR_SINGLE_Q )
    set_prob_mat!( pairtree,    GTR_PAIRED_Q )
 
-   regs = loadbed( args["regions"] )#, expandfirst=1000, expandlast=1000 )
+   regs = loadbed( args["regions"], expandfirst=1000, expandlast=1000 )
 
    datout = BufferedOutputStream(open("$(args["output"])-raw.jlt", "w"))
-   bedout = BufferedOutputStream(open("$(args["output"]).bed", "w"))
+   bedout = open("$(args["output"]).bed", "w")
 
    for chr in keys(regs.trees)
       println("Reading $(args["maf"])/$chr.maf.gz")
       reader = ZlibInflateInputStream(open("$(args["maf"])/$chr.maf.gz"), bufsize=129000) |> MAFReader
-      @time maf = readmaf!( reader, neutraltree.index, minlength=30, minspecies=15, minscore=-Inf, regionbool=true, regions=regs )
+      @time maf = readmaf!( reader, neutraltree.index, minlength=30, minspecies=2, minscore=-Inf, regionbool=true, regions=regs )
+      println(maf)
       for r in collect(regs)
          haskey( maf.trees, r.seqname ) || continue
+         println("R:"); println(r)
          col = collect(intersect( maf.trees[r.seqname], r ))
-         length(col) > 1 || continue
+         println("COL:"); println(col)
+         length(col) >= 1 || continue
          if r.strand == STRAND_NEG
             for i in col
                EvoDuplexes.reverse_complement!( i.metadata )
             end
          end
+         println("IinCOL:")
          for i in col
             println(i.metadata.species)
          end
@@ -93,7 +98,7 @@ function main()
          distnum = min(10000, length(trav))
          halfnum = distnum >> 1
          indices = collect(1:halfnum)
-         indices = [indices; sample(collect(halfnum+1:distnum), halfnum, replace=false)]
+         indices = [indices; sample(collect(halfnum+1:distnum), distnum - halfnum, replace=false)]
 
          dcons = zeros(length(indices))
          dslow = zeros(length(indices))
@@ -104,7 +109,7 @@ function main()
          for k in 1:length(indices)
             j = indices[k]
             i = trav[j]
-            const conscore = (score( i.duplex, constree, gapdenom=1.1 ) - score( i.duplex, neutraltree )) / npairs( i.duplex )
+            const conscore = (score( i.duplex, constree, gapdenom=1.25 ) - score( i.duplex, neutraltree )) / npairs( i.duplex )
             score!( i.duplex, neutraltree, pairtree )
             const neutral = score( i.duplex ) / npairs( i.duplex )
             score!( i.duplex, constree, pairtree )
@@ -132,32 +137,45 @@ function main()
            
          end
 
-         dcons = zscore(dcons)
-         dslow = zscore(dslow)
-         ddelg = zscore(ddelg)
-         ddist = zscore(ddist)
-         dentr = zscore(dentr)
+         zcons = zscore(dcons)
+         zslow = zscore(dslow)
+         zdelg = zscore(ddelg)
+         zdist = zscore(ddist)
+         zentr = zscore(dentr)
 
-         ztab  = DataFrame(Cons=dcons+dslow, DeltaG=ddelg, Dist=ddist)
+         ztab  = DataFrame(Cons=zcons+zslow, DeltaG=zdelg, Dist=zdist)
          zmat  = transpose(Array(ztab))
          zdist = pairwise(Euclidean(), zmat)
-         clust = dbscan(zdist, 2.0, 25)
+         clust = dbscan(zdist, 1.5, 100)
          ztab[:,:cluster] = clust.assignments
          outliers = find(clust.assignments .== 0)
 
          for i in outliers
             ind = indices[i]
             println(trav[ind])
-            println(ztab[i,:Cons])
-            println(ztab[i,:DeltaG])
-            println(dentr[ind])
-            if ztab[i,:Cons] > 0.25 &&
-               ztab[i,:DeltaG] < -5 &&
-               dentr[ind]    > 2.5
+            println("Z Conservation: $(ztab[i,:Cons])")
+            println("Z DeltaG: $(ztab[i,:DeltaG])")
+            println("Z Entropy: $(zentr[ind])")
+            println("Conservation: $(dcons[ind])")
+            println("Entropy: $(dentr[ind])")
 
-               writebed( bedout, trav[ind], "Outlier" )
+            if ztab[i,:Cons] > 0.5 &&
+               ztab[i,:DeltaG] < -3 &&
+               dcons[ind] > 0.0 &&
+               ddelg[ind] < -17.5 &&
+               zentr[ind] > 0.0
+
+               println("OUTLIER!")
+               writebed( bedout, trav[ind], "$(r.metadata):Outlier" )
+            else
+               ztab[i,:cluster] = 1
             end
          end
+
+         # print plots
+         consplot = plot(ztab, x=:DeltaG, y=:Cons, color=:cluster, Scale.color_discrete_manual("orange", "blue"), Theme(highlight_width = 0pt))
+         distplot = plot(ztab, x=:DeltaG, y=:Dist, color=:cluster, Scale.color_discrete_manual("orange", "blue"), Theme(highlight_width = 0pt))
+         draw(SVGJS("$(r.metadata)-Outlier.svg", 8inch, 3.5inch), hstack(consplot, distplot))
       end
    end
       

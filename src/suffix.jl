@@ -22,6 +22,9 @@ type RNASuffixArray{A<:BioSequences.Alphabet,I<:Integer,K<:Integer}
 
    function RNASuffixArray( maf::MAFRecord, tree::PhyloTree, len::Int, metadata::K=one(K))
       deletegaps!( maf )
+      for i in 2:length(maf.species)
+         @assert length(maf.species[i].sequence) == length(maf.species[1].sequence)
+      end
       sai   = SuffixArrays.suffixsort( String(maf[1].sequence) ).index + one(I)
       meta  = K[metadata for i in 1:length(sai)]
       depth = SuffixVector(len)
