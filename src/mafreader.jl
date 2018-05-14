@@ -204,9 +204,8 @@ maf_actions_stream = Dict(
                       const pscore = parse(Float64, score)
                       const pos    = parse(Int, position)
                       org,chr = parsename( organism, reader.keepname )
-                      is = collect(IntervalTrees.intersect(regions.trees[chr], pos, pos+len-1))
                       if (len < reader.minlen || pscore < reader.minscore) ||
-                         (regionbool && length(is) == 0)
+                         (regionbool && !hasintersection( regions, Interval(chr, pos, pos+len-1) ))
                          bad_record = true
                       end
                    end
