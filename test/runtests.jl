@@ -22,13 +22,13 @@ include("../src/energy.jl")
 include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
-#include("../src/trie.jl")
 include("../src/mafreader.jl")
 include("../src/gtrmodel.jl")
 include("../src/newick.jl")
 include("../src/suffix.jl")
 include("../src/evoduplex.jl")
 include("../src/io.jl")
+include("../src/regions.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -443,9 +443,12 @@ end
 
 end
 
-@testset "Load BedGraph" begin
-   g = loadbedgraph( 
-
+@testset "Load Bed & BedGraph" begin
+   g = loadbedgraph( "head.bedGraph.gz" )
+   @test length(g) == 999
+   i = loadbed( "small.bed" )
+   g = loadbedgraph( "head.bedGraph.gz", regions=i, regionbool=true )
+   @test length(g) == 10
 end
 
 @testset "MAF Parser" begin

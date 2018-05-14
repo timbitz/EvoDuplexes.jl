@@ -8,7 +8,7 @@ type PhyloNode
     prob::Array{Float64,2}
 end
 
-const EMPTY_NODE = PhyloNode("", Nullable{PhyloNode}(), Nullable{PhyloNode}(), 0.0, Array{Float64,2}())
+const EMPTY_NODE = PhyloNode("", Nullable{PhyloNode}(), Nullable{PhyloNode}(), 0.0, Array{Float64}(0,0))
 
 immutable PhyloTree
    root::PhyloNode
@@ -30,7 +30,7 @@ function parsenewick(newick::String)
     PhyloTree(root, order, index)
 end
 
-parsenewick(newick::Symbol) = PhyloNode(string(newick), Nullable{PhyloNode}(), Nullable{PhyloNode}(), -1, Array{Float64,2}())
+parsenewick(newick::Symbol) = PhyloNode(string(newick), Nullable{PhyloNode}(), Nullable{PhyloNode}(), -1, Array{Float64}(0,0))
 
 function parsenewick(newick::Expr)
     if newick.head == :tuple
@@ -71,7 +71,7 @@ function parsenewick(newick::Expr)
             length = -1
         end
     end
-    PhyloNode(name,left,right,length, Array{Float64,2}())
+    PhyloNode(name,left,right,length, Array{Float64}(0,0))
 end
 
 # Tree collection

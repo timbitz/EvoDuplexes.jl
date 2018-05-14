@@ -10,9 +10,9 @@
 # Pairs encoded as adjacent sets of 'one hot' values
 # so AA would be 0b00010001, and AU  0b00011000 and so forth.
 
-abstract NucleotidePair
+abstract type NucleotidePair end
 
-bitstype 8 RNAPair <: NucleotidePair
+primitive type RNAPair<:NucleotidePair 8 end
 
 const AU_PAIR = reinterpret(RNAPair, 0b00011000)
 const UA_PAIR = reinterpret(RNAPair, 0b10000001)
@@ -21,7 +21,7 @@ const GC_PAIR = reinterpret(RNAPair, 0b01000010)
 const GU_PAIR = reinterpret(RNAPair, 0b01001000)
 const UG_PAIR = reinterpret(RNAPair, 0b10000100)
 
-bitstype 8 RNAMismatch <: NucleotidePair
+primitive type RNAMismatch<:NucleotidePair 8 end
 
 const AA_MISMATCH = reinterpret(RNAMismatch, 0b00010001)
 const AC_MISMATCH = reinterpret(RNAMismatch, 0b00010010)
@@ -34,7 +34,7 @@ const GG_MISMATCH = reinterpret(RNAMismatch, 0b01000100)
 const UC_MISMATCH = reinterpret(RNAMismatch, 0b10000010)
 const UU_MISMATCH = reinterpret(RNAMismatch, 0b10001000)
 
-bitstype 8 RNABulge <: NucleotidePair
+primitive type RNABulge<:NucleotidePair 8 end
 
 const AB_BULGE = reinterpret(RNABulge, 0b00010000)
 const CB_BULGE = reinterpret(RNABulge, 0b00100000)
@@ -46,7 +46,7 @@ const BC_BULGE = reinterpret(RNABulge, 0b00000010)
 const BG_BULGE = reinterpret(RNABulge, 0b00000100)
 const BU_BULGE = reinterpret(RNABulge, 0b00001000)
 
-bitstype 8 InvalidPair <: NucleotidePair
+primitive type InvalidPair<:NucleotidePair 8 end
 
 const XX_INVALID = reinterpret(InvalidPair, 0b11111111)
 
@@ -60,7 +60,7 @@ const CX_INVALID = reinterpret(InvalidPair, 0b00101111)
 const GX_INVALID = reinterpret(InvalidPair, 0b01001111)
 const UX_INVALID = reinterpret(InvalidPair, 0b10001111)
 
-bitstype 8 InvalidBulge <: NucleotidePair
+primitive type InvalidBulge<:NucleotidePair 8 end
 
 const BX_INVALID = reinterpret(InvalidBulge, 0b00001111)
 const XB_INVALID = reinterpret(InvalidBulge, 0b11110000)

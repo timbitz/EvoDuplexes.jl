@@ -211,7 +211,7 @@ const internal_size2_row6 = [
 ]
 
 
-const TURNER_2004_INTERNAL_TWO = fill( Array{Float64,2}(), (16,16) )
+const TURNER_2004_INTERNAL_TWO = fill( Array{Float64}(0,0), (16,16) )
 
 rows = [internal_size2_row1, internal_size2_row2, internal_size2_row3, 
         internal_size2_row4, internal_size2_row5, internal_size2_row6]
@@ -678,7 +678,7 @@ const internal_size3_row24 = [
   3.0  3.0  3.0  3.0  2.2  2.2  2.2  2.2  2.2  2.2  2.2  2.2  3.0  3.0  3.0  3.0  3.0  3.0  3.0  3.0  3.0  3.0  3.0  3.0
 ]
 
-const TURNER_2004_INTERNAL_THREE = fill( Array{Float64,2}(), (16,16,4) )
+const TURNER_2004_INTERNAL_THREE = fill( Array{Float64}(0,0), (16,16,4) )
 
 rows = [internal_size3_row1,  internal_size3_row2,  internal_size3_row3,  internal_size3_row4,       
         internal_size3_row5,  internal_size3_row6,  internal_size3_row7,  internal_size3_row8,
@@ -740,7 +740,7 @@ Data arrangement:
 (UU)  .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .  
 =#
 
-const TURNER_2004_INTERNAL_FOUR = fill( Array{Float64,2}(), (16,16) )
+const TURNER_2004_INTERNAL_FOUR = fill( Array{Float64}(0,0), (16,16) )
 
 #=
  ------------------------------------------------------------------------------

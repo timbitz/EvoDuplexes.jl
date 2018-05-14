@@ -1,6 +1,6 @@
 
 
-type DuplexInterval{T}
+mutable struct DuplexInterval{T}
    first::Interval{T}  # fwd helical region 
    last::Interval{T}   # rev helical region
    duplex::AbstractDuplex   # rna duplex formed
@@ -11,13 +11,13 @@ distance( int::DuplexInterval ) = (int.last.first - int.first.last) - 1
 const ZERO_DUPLEX_INTERVAL = DuplexInterval(Interval("", 0, 0), Interval("", 0, 0), RNADuplex())
 
 # a DuplexCollection contains DuplexIntervals indexed by first interval
-type DuplexCollection{T}
+mutable struct DuplexCollection{T}
    names::Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}
    binsize::Int64
    length::Int64
 
-   DuplexCollection()               = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), 50, 0 )
-   DuplexCollection( binsize::Int ) = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), binsize, 0)
+   DuplexCollection{T}() where T               = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), 50, 0 )
+   DuplexCollection{T}( binsize::Int ) where T = new(Dict{String,Dict{UInt64,Vector{DuplexInterval{T}}}}(), binsize, 0)
 end
 
 function Base.minimum{T}( col::DuplexCollection{T}; default::Float64=0.0 )

@@ -25,7 +25,6 @@ include("../src/energy.jl")
 include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
-#include("../src/trie.jl")
 include("../src/mafreader.jl")
 include("../src/gtrmodel.jl")
 include("../src/newick.jl")
@@ -62,7 +61,9 @@ export RNADuplex,
        parsenewick,
        GTR_SINGLE_Q,
        GTR_PAIRED_Q,
+       isgzipped,
        loadbed,
-       writebed
+       writebed,
+       loadbedgraph
 
 end
