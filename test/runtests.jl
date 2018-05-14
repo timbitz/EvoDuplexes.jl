@@ -443,59 +443,9 @@ end
 
 end
 
-@testset "RNA Trie Building" begin
+@testset "Load BedGraph" begin
+   g = loadbedgraph( 
 
-   #= Vestigial tests for a deprecated data structure
-
-   A = Bio.Seq.DNAAlphabet{2}
-   trie = RNATrie{A,String}( 1:3 )
-   @test trie.range == 1:3
-   @test isa( trie.root, NullTrieNode ) == true
-   push!( trie, dna"ACGT", "DNA" )
-   @test isa( trie.root, TrieNode{A} )  == true
-   for i in 1:4
-      @test trie.root.offsets[i] == [i]
-   end
-   @test trie.root.next[1].offsets[2] == [2]
-   @test trie.root.next[1].next[2].offsets[3] == [3]
-   for i in 1:4
-      @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
-   end
-   @test trie.root.next[2].next[3].offsets[4] == [4]
-   for i in 1:4
-      @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
-   end
-   @test nodecount( trie ) == 9
-
-   push!( trie, ReferenceSequence("ACGT"), "REF" )
-   @test isa( trie.root, TrieNode{A} )  == true
-   for i in 1:4
-      @test trie.root.offsets[i] == [i,i]
-   end
-   @test trie.root.next[1].offsets[2] == [2,2]
-   @test trie.root.next[1].next[2].offsets[3] == [3,3]
-   for i in 1:4
-      @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
-   end
-   @test trie.root.next[2].next[3].offsets[4] == [4,4]
-   for i in 1:4
-      @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
-   end 
-   @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
-   @test nodecount( trie ) == 9
-   =#
-end
-
-@testset "Duplex Trie Building and Traversal" begin
-
-   #= Duplex Trie deprecated...
-
-   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
-   trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
-   @test length(traverse( trie, 8:50, bulge_max=0 )) == 0
-   val = traverse( trie, 8:50, bulge_max=1 )
-   @test length(val) == 1
-   =#
 end
 
 @testset "MAF Parser" begin
