@@ -13,6 +13,17 @@ using Automa
 using BufferedStreams
 using Libz
 
+using PyCall
+using PyPlot
+
+using ScikitLearn
+using ScikitLearn.Utils: meshgrid
+
+@sk_import ensemble: IsolationForest
+
+@pyimport matplotlib.font_manager as fm
+@pyimport scipy.stats as stats
+
 import Automa
 import Automa.RegExp: @re_str
 import Compat: take!
@@ -32,6 +43,7 @@ include("../src/suffix.jl")
 include("../src/evoduplex.jl")
 include("../src/io.jl")
 include("../src/regions.jl")
+include("../src/train.jl")
 
 export RNADuplex,
        EvoDuplex,
@@ -64,6 +76,8 @@ export RNADuplex,
        isgzipped,
        loadbed,
        writebed,
-       loadbedgraph
-
+       loadbedgraph,
+       DistanceForest,
+       train!,
+       predict
 end

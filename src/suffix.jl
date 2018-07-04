@@ -344,7 +344,8 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=3:typ
       end
 
       # recurse through bulges
-      if bulge_n < bulge_max && (bulge_n >= 1 ? from_bulge : !from_bulge) &&
+      if bulge_n < bulge_max && 
+         (bulge_n >= 1 ? from_bulge : !from_bulge) &&
          fdepth > 1 && rdepth > 1 && duplex.energy[end] < energy_max
          for (l,r) in bulges_idx
             if l == 0

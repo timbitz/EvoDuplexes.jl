@@ -15,6 +15,7 @@ using Gadfly
 using Distances
 using Clustering
 using MultivariateStats
+using StatsBase
 
 unshift!( LOAD_PATH, dir * "/../src" )
 using EvoDuplexes
@@ -62,7 +63,7 @@ function main()
    set_prob_mat!( constree,    GTR_SINGLE_Q )
    set_prob_mat!( pairtree,    GTR_PAIRED_Q )
 
-   regs = loadbed( args["regions"], expandfirst=1000, expandlast=1000 )
+   regs = loadbed( args["regions"], expandfirst=25, expandlast=25 )
 
    datout = BufferedOutputStream(open("$(args["output"])-raw.jlt", "w"))
    bedout = open("$(args["output"]).bed", "w")
@@ -93,7 +94,7 @@ function main()
             push!( rda, col[i].metadata, neutraltree )
          end
 
-         @time trav = collect(stitch(traverse( rda, 5:5000, single=neutraltree, bulge_max=3, mismatch_max=3, minfold=-10.0 )))
+         @time trav = collect(traverse( rda, 1:5000, single=neutraltree, bulge_max=3, mismatch_max=3, minfold=-10.0 ))
          sort!( trav, lt=(a,b)->(energy(a.duplex) < energy(b.duplex)) )
          distnum = min(10000, length(trav))
          halfnum = distnum >> 1
@@ -114,7 +115,7 @@ function main()
             const neutral = score( i.duplex ) / npairs( i.duplex )
             score!( i.duplex, constree, pairtree )
             const slow    = score( i.duplex ) / npairs( i.duplex )
-            const ent     = dinucleotide_entropy(i.duplex.duplex)
+            const ent     = dinucleotide_entropy(i.duplex.duplex) / (npairs( i.duplex ) + 5)
             const meancov = covariance( i.duplex ) * 10
             const len     = npairs( i.duplex )
             const dist    = distance( i )
@@ -150,20 +151,21 @@ function main()
          ztab[:,:cluster] = clust.assignments
          outliers = find(clust.assignments .== 0)
 
-         for i in outliers
+         for i in 1:length(clust.assignments)
             ind = indices[i]
             println(trav[ind])
             println("Z Conservation: $(ztab[i,:Cons])")
             println("Z DeltaG: $(ztab[i,:DeltaG])")
             println("Z Entropy: $(zentr[ind])")
-            println("Conservation: $(dcons[ind])")
+            println("Delta G: $(ddelg[ind])")
+            println("Conservation: $(dslow[ind])")
             println("Entropy: $(dentr[ind])")
 
-            if ztab[i,:Cons] > 0.5 &&
-               ztab[i,:DeltaG] < -3 &&
-               dcons[ind] > 0.0 &&
-               ddelg[ind] < -17.5 &&
-               zentr[ind] > 0.0
+            #if #ztab[i,:Cons] > 0.5 &&
+               #ztab[i,:DeltaG] < 0 &&
+            if dslow[ind] > 0.0 &&
+               ddelg[ind] < -10 &&
+               dentr[ind] > 0.12 
 
                println("OUTLIER!")
                writebed( bedout, trav[ind], "$(r.metadata):Outlier" )

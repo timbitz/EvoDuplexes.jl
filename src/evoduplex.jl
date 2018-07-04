@@ -1,5 +1,5 @@
 
-type EvoDuplex <: AbstractDuplex
+mutable struct EvoDuplex <: AbstractDuplex
    duplex::RNADuplex
    alignment::Array{DNA,2}
    first::Int
@@ -81,7 +81,7 @@ function join_duplex!( left::EvoDuplex, right::EvoDuplex, npairs, npairs_first, 
    left
 end
 
-type EvoScore 
+mutable struct EvoScore 
    unstr_cons::Float64
    struc_neut::Float64
    struc_cons::Float64

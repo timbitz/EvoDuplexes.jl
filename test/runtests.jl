@@ -10,6 +10,16 @@ using Automa
 using BufferedStreams
 using Libz
 
+using PyCall, PyPlot
+
+using ScikitLearn
+using ScikitLearn.Utils: meshgrid
+
+@sk_import ensemble: IsolationForest
+
+@pyimport matplotlib.font_manager as fm
+@pyimport scipy.stats as stats
+
 import Automa
 import Automa.RegExp: @re_str
 import Compat: take!
@@ -29,6 +39,7 @@ include("../src/suffix.jl")
 include("../src/evoduplex.jl")
 include("../src/io.jl")
 include("../src/regions.jl")
+include("../src/train.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -894,6 +905,18 @@ s panTro4.chr22                  14470459 32 +  49737984 ACTCTATCTTAAGCTTTTCTGCT
    # score using EvoFold phylo-likelihood model
    # str,unstr = score!(res[1].duplex, smtree, pairtree)
    # @test str - unstr > 0
+end
+
+@testset "Distance-specific IsolationForests: train, predict" begin
+   
+   data = open(readdlm, "hnrnpd.jlt")
+   df = DistanceForest()
+
+   train!( df, data )
+   p = predict( df, data )
+
+   @test length(p)/size(data, 1) < 0.01
+   @test data[p[1], 1] == 859
 
 end
 
