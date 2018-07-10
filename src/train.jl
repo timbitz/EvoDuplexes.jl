@@ -6,7 +6,7 @@ struct DistanceForest
    midvalues::Vector{Vector{Float64}}
    heuristic::Vector{Function}
 
-   function DistanceForest( outratio::Float64=0.01, heuristic=[>, >, >, <, >, >, >] )
+   function DistanceForest( outratio::Float64=0.1, heuristic=[>, <, >, >, >] )
       inter, mids = distances()
       forests = [IsolationForest(contamination=outratio) for i in 1:length(mids)]
       new(forests, inter, mids, Vector{Vector{Float64}}(length(mids)), heuristic)

@@ -41,6 +41,9 @@ function parse_cmd()
        help     = "Output prefix"
        arg_type = String
        default  = "evoduplex"
+      "--train"
+       help     = "Train the Distance-specific IsolationForest models"
+       action   = :store_true
    end
    return parse_args(s)
 end

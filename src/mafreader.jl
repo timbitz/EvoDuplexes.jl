@@ -205,7 +205,8 @@ maf_actions_stream = Dict(
                       const pos    = parse(Int, position)
                       org,chr = parsename( organism, reader.keepname )
                       if (len < reader.minlen || pscore < reader.minscore) ||
-                         (regionbool && !hasintersection( regions, Interval(chr, pos, pos+len-1) ))
+                         (regionbool && !hasintersection( regions, Interval(chr, pos, pos+len-1) )) ||
+                         (secbool    && !hasintersection( secregions, Interval(chr, pos, pos+len-1) ))
                          bad_record = true
                       end
                    end
@@ -281,7 +282,9 @@ const EMPTY_INTCOL = IntervalCollection{Void}()
 
 const context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
 
-@eval function Base.read!(reader::MAFReader, record::MAFRecord; regionbool::Bool=false, regions::IntervalCollection=EMPTY_INTCOL)
+@eval function Base.read!(reader::MAFReader, record::MAFRecord; 
+                          regionbool::Bool=false, regions::IntervalCollection=EMPTY_INTCOL,
+                          secbool::Bool=false,    secregions::IntervalCollection=EMPTY_INTCOL)
     cs      = reader.cs
     stream  = reader.stream
     data    = stream.buffer
@@ -365,20 +368,23 @@ end
 const MAFInterval = Interval{MAFRecord}
 const MAFCollection = IntervalCollection{MAFRecord}
 
-const EMPTYCOL = IntervalCollection{Void}()
-
-function readmaf!( reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf, regionbool=false, regions=EMPTYCOL )
+function readmaf!( reader::MAFReader, order::Dict{String,Int}; 
+                   minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf, 
+                   regionbool=false, regions=EMPTY_INTCOL,
+                   secbool=false, secregions=EMPTY_INTCOL)
    maf = MAFCollection()
-   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore, regionbool=regionbool, regions=regions )
+   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore, 
+             regionbool=regionbool, regions=regions, secbool=secbool, secregions=secregions )
 end
 
 function readmaf!( maf::MAFCollection, reader::MAFReader, order::Dict{String,Int}; 
                    minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf,
-                   regionbool=false, regions=EMPTYCOL )
+                   regionbool=false, regions=EMPTY_INTCOL,
+                   secbool=false, secregions=EMPTY_INTCOL)
    prev = MAFRecord()
    while !done( reader )
       rec = MAFRecord()
-      read!( reader, rec, regionbool=regionbool, regions=regions )
+      read!( reader, rec, regionbool=regionbool, regions=regions, secbool=secbool, secregions=secregions )
       if length(rec.species) >= minspecies
          try
             deletegaps!(rec)
