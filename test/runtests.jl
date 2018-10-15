@@ -915,7 +915,7 @@ end
    train!( df, data )
    p = predict( df, data )
 
-   @test length(p)/size(data, 1) < 0.01
+   @test length(p)/size(data, 1) < 0.02
    @test data[p[1], 1] == 859
 
 end
