@@ -60,6 +60,10 @@ function parse_cmd()
        help     = "When conserved regions are given, use this branch length multiplier"
        arg_type = Float64
        default  = 0.33
+      "--sig-ratio"
+       help     = "Output the top fraction of outliers"
+       arg_type = Float64
+       default  = 0.05
     end
    return parse_args(s)
 end
@@ -110,7 +114,7 @@ function main()
    elseif istrue( args["model-data"] )
       println("Training model from .jlt datafile $(args["model-data"])...")
       tabdata = open(readdlm, args["model-data"])
-      model = DistanceForest()
+      model = DistanceForest( args["sig-ratio"] )
       train!( model, tabdata )
    elseif args["model-train"]
       train = true
@@ -178,7 +182,7 @@ function main()
 
    if train
       println("Training IsolationForest models...")
-      model = DistanceForest()
+      model = DistanceForest( args["sig-ratio"] )
       train!( model, tabdata )
    end
 
