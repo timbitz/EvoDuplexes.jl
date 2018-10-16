@@ -1,11 +1,11 @@
 
-abstract AbstractDuplex
+abstract type AbstractDuplex end
 
 # RNADuplex objects represent the path of a duplex as a
 # Vector of NucleotidePair's.  Type of the NucleotidePair
 # thus defines the operations: Pair, Mismatch, Bulge
 # and interior loops are combinations of Mismatches and Bulges
-type RNADuplex <: AbstractDuplex
+mutable struct RNADuplex <: AbstractDuplex
    path::Vector{NucleotidePair} # sequence and structure path
    energy::Vector{Float64} # gibbs free energy from nearest-neighbor
    length::Int # shortest length
@@ -55,7 +55,7 @@ end
 function Base.show( io::IO, duplex::RNADuplex )
    function print_index( io, idx )
       val = idx != 15 ? UInt8(0x01 << (idx - 1)) : UInt8(0)
-      print(io, convert(RNANucleotide, val))
+      print(io, convert(RNA, val))
    end
    print(io, "\n   ")
    for i in duplex.path

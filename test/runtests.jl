@@ -1,33 +1,45 @@
 
 using Base.Test
-using Bio.Seq
-using Bio.Intervals
+using BioSymbols
+using BioSequences
+using GenomicFeatures
 using SuffixArrays
 using Gadfly
 using Automa
 
-using Bio.Seq
 using BufferedStreams
 using Libz
+
+using PyCall, PyPlot
+
+using ScikitLearn
+using ScikitLearn.Utils: meshgrid
+
+@sk_import ensemble: IsolationForest
+
+@pyimport matplotlib.font_manager as fm
+@pyimport scipy.stats as stats
 
 import Automa
 import Automa.RegExp: @re_str
 import Compat: take!
 
-importall Bio.Intervals
+importall BioSymbols
+importall GenomicFeatures
 
 include("../src/pairs.jl")
 include("../src/energy.jl")
 include("../src/rnaduplex.jl")
 include("../src/intervals.jl")
 include("../src/traverse.jl")
-include("../src/trie.jl")
 include("../src/mafreader.jl")
 include("../src/gtrmodel.jl")
 include("../src/newick.jl")
 include("../src/suffix.jl")
 include("../src/evoduplex.jl")
 include("../src/io.jl")
+include("../src/regions.jl")
+include("../src/train.jl")
 
 const pair_set   = [AU_PAIR, UA_PAIR, CG_PAIR, GC_PAIR, GU_PAIR, UG_PAIR]
 const mismat_set = [AA_MISMATCH, AG_MISMATCH, AC_MISMATCH, CA_MISMATCH, CC_MISMATCH,
@@ -442,58 +454,12 @@ end
 
 end
 
-@testset "RNA Trie Building" begin
-
-   # Vestigial tests for a deprecated data structure
-
-   A = Bio.Seq.DNAAlphabet{2}
-   trie = RNATrie{A,String}( 1:3 )
-   @test trie.range == 1:3
-   @test isa( trie.root, NullTrieNode ) == true
-   push!( trie, dna"ACGT", "DNA" )
-   @test isa( trie.root, TrieNode{A} )  == true
-   for i in 1:4
-      @test trie.root.offsets[i] == [i]
-   end
-   @test trie.root.next[1].offsets[2] == [2]
-   @test trie.root.next[1].next[2].offsets[3] == [3]
-   for i in 1:4
-      @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
-   end
-   @test trie.root.next[2].next[3].offsets[4] == [4]
-   for i in 1:4
-      @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
-   end
-   @test nodecount( trie ) == 9
-
-   push!( trie, ReferenceSequence("ACGT"), "REF" )
-   @test isa( trie.root, TrieNode{A} )  == true
-   for i in 1:4
-      @test trie.root.offsets[i] == [i,i]
-   end
-   @test trie.root.next[1].offsets[2] == [2,2]
-   @test trie.root.next[1].next[2].offsets[3] == [3,3]
-   for i in 1:4
-      @test isa( trie.root.next[1].next[2].next[3].next[i], NullTrieNode ) == true
-   end
-   @test trie.root.next[2].next[3].offsets[4] == [4,4]
-   for i in 1:4
-      @test isa( trie.root.next[2].next[3].next[4].next[i], NullTrieNode ) == true
-   end 
-   @test trie.root.next[2].next[3].metadata[4] == String["DNA","REF"]
-   @test nodecount( trie ) == 9
-end
-
-@testset "Duplex Trie Building and Traversal" begin
-
-   # Duplex Trie deprecated...
-
-   seq = dna"AAATGATGCCGCAGGGGGGGGGGTGCGGCAATCATTT"
-   trie = DuplexTrie{DNAAlphabet{2},UInt8}( seq, 8:16 )
-   @test length(traverse( trie, 8:50, bulge_max=0 )) == 0
-   val = traverse( trie, 8:50, bulge_max=1 )
-   @test length(val) == 1
-
+@testset "Load Bed & BedGraph" begin
+   g = loadbedgraph( "head.bedGraph.gz" )
+   @test length(g) == 999
+   i = loadbed( "small.bed" )
+   g = loadbedgraph( "head.bedGraph.gz", regions=i, regionbool=true )
+   @test length(g) == 10
 end
 
 @testset "MAF Parser" begin
@@ -762,19 +728,19 @@ end
    @test round(0.9663174882951899, 6) == round(hgpanAnc[3], 6)
    @test round(0.0010248670755000002, 6) == round(hgpanAnc[4], 6)
 
-   @test round(likelihood( tree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
+   @test round(likelihood( tree, DNA[DNA_G, DNA_G, DNA_A] ),4) == 0.0539
 
    smtree   = parsenewick("((hg19:0.006591,panTro2:0.006639):0.002184,gorGor1:0.15);")
    pairtree = deepcopy(smtree)
    set_prob_mat!( smtree,   GTR_SINGLE_Q )
    set_prob_mat!( pairtree, GTR_PAIRED_Q )
 
-   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
-   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_G] )
+   single_p = likelihood( smtree, DNA[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, DNA[DNA_C, DNA_C, DNA_G] )
+   paired_p = likelihood( pairtree, DNA[DNA_G, DNA_G, DNA_G], DNA[DNA_C, DNA_C, DNA_G] )
    @test single_p > paired_p
 
-   single_p = likelihood( smtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
-   paired_p = likelihood( pairtree, Bio.Seq.Nucleotide[DNA_G, DNA_G, DNA_G], Bio.Seq.Nucleotide[DNA_C, DNA_C, DNA_T] )
+   single_p = likelihood( smtree, DNA[DNA_G, DNA_G, DNA_G] ) * likelihood( smtree, DNA[DNA_C, DNA_C, DNA_T] )
+   paired_p = likelihood( pairtree, DNA[DNA_G, DNA_G, DNA_G], DNA[DNA_C, DNA_C, DNA_T] )
    @test paired_p > single_p
 
 end
@@ -939,6 +905,18 @@ s panTro4.chr22                  14470459 32 +  49737984 ACTCTATCTTAAGCTTTTCTGCT
    # score using EvoFold phylo-likelihood model
    # str,unstr = score!(res[1].duplex, smtree, pairtree)
    # @test str - unstr > 0
+end
+
+@testset "Distance-specific IsolationForests: train, predict" begin
+   
+   data = open(readdlm, "hnrnpd.jlt")
+   df = DistanceForest()
+
+   train!( df, data )
+   p = predict( df, data )
+
+   @test length(p)/size(data, 1) < 0.02
+   @test data[p[1], 1] == 859
 
 end
 

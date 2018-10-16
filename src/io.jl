@@ -1,4 +1,12 @@
 
+isgzipped( filename::String ) = hasextension( filename, "gz" )
+
+function hasextension( filename::String, ext::String )
+   restr = "\.$ext\$"
+   re = Base.match(Regex(restr), filename)
+   return re == nothing ? false : true
+end
+
 plug_write{S <: AbstractString}( io, str::S; plug::Char='\t' ) = (write( io, str ); write( io, plug  ))
 plug_write( io, str::Char; plug::Char='\t' ) = (write( io, str ); write( io, plug  ))
 
@@ -64,3 +72,4 @@ function writebed{T}( io, v::Vector{DuplexInterval{T}}, name::String; maxdistanc
       writebed( io, i, name, maxdistance=maxdistance, maxenergy=maxenergy )
    end
 end
+

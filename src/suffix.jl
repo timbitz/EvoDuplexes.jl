@@ -1,7 +1,7 @@
 
-const SuffixVector = Vector{Vector{Bio.Seq.Nucleotide}}
+const SuffixVector = Vector{Vector{DNA}}
 
-type RNASuffixArray{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
+type RNASuffixArray{A<:BioSequences.Alphabet,I<:Integer,K<:Integer}
    sai::Vector{I}
    meta::Vector{K}
    depth::SuffixVector
@@ -9,7 +9,7 @@ type RNASuffixArray{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
    length::Int
    isphylo::Bool
 
-   function RNASuffixArray( seq::Bio.Seq.Sequence, len::Int, metadata::K=one(K))
+   function RNASuffixArray( seq::BioSequences.Sequence, len::Int, metadata::K=one(K))
       sai   = SuffixArrays.suffixsort( String(seq) ).index + one(I)
       meta  = K[metadata for i in 1:length(sai)]
       depth = SuffixVector(len)
@@ -22,6 +22,9 @@ type RNASuffixArray{A<:Bio.Seq.Alphabet,I<:Integer,K<:Integer}
 
    function RNASuffixArray( maf::MAFRecord, tree::PhyloTree, len::Int, metadata::K=one(K))
       deletegaps!( maf )
+      for i in 2:length(maf.species)
+         @assert length(maf.species[i].sequence) == length(maf.species[1].sequence)
+      end
       sai   = SuffixArrays.suffixsort( String(maf[1].sequence) ).index + one(I)
       meta  = K[metadata for i in 1:length(sai)]
       depth = SuffixVector(len)
@@ -59,7 +62,7 @@ function Base.:(<=)( a::SuffixVector, ai, b::SuffixVector, bi )
    true
 end
 
-function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, seq::Bio.Seq.Sequence; 
+function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, seq::BioSequences.Sequence; 
                             metadata::K=convert(K,maximum(suf.meta)+1) )
 
    suf.isphylo && error("Cannot push! single BioSequence when isphylo is enabled!")
@@ -72,7 +75,7 @@ function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, seq::Bio.Seq.Sequence;
    const newmeta   = zeros(K, length(suf.sai) + length(suftmp.sai) )
    const newdepth  = SuffixVector(suf.length)
    for i in 1:suf.length
-      newdepth[i] = Vector{Bio.Seq.Nucleotide}(length(suf.sai) + length(suftmp.sai))
+      newdepth[i] = Vector{DNA}(length(suf.sai) + length(suftmp.sai))
    end
 
    # merge
@@ -121,12 +124,12 @@ function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, maf::MAFRecord, tree::Ph
    const newspecies = Vector{SuffixVector}(length(tree.order)-1)
 
    for i in 1:suf.length
-      newdepth[i] = Vector{Bio.Seq.Nucleotide}(length(suf.sai) + length(suftmp.sai))
+      newdepth[i] = Vector{DNA}(length(suf.sai) + length(suftmp.sai))
    end
    for i in 1:length(newspecies)
       newspecies[i] = SuffixVector(suf.length)
       for j in 1:suf.length
-         newspecies[i][j] = Vector{Bio.Seq.Nucleotide}(length(suf.sai) + length(suftmp.sai))
+         newspecies[i][j] = Vector{DNA}(length(suf.sai) + length(suftmp.sai))
       end
    end
 
@@ -180,34 +183,34 @@ end
 type RNADuplexArray{A,I,K}
    fwd::RNASuffixArray{A,I,K}
    rev::RNASuffixArray{A,I,K}
-   seqs::Vector{Bio.Seq.Sequence}
+   seqs::Vector{BioSequences.Sequence}
    coords::Vector{RNAGenomeCoord}
    depth::Int
    isphylo::Bool
 
-   function RNADuplexArray( seq::Bio.Seq.Sequence, depth::Int;
+   function RNADuplexArray( seq::BioSequences.Sequence, depth::Int;
                             seqname::String="chr", genomepos::Int=1, strand::Bool=true )
       fwd    = RNASuffixArray{A,I,K}( seq, depth )
       rev    = RNASuffixArray{A,I,K}( reverse(seq), depth )
-      seqs   = Bio.Seq.Sequence[seq]
+      seqs   = BioSequences.Sequence[seq]
       coords = RNAGenomeCoord[RNAGenomeCoord(seqname, genomepos, strand, length(seq))]
       return new( fwd, rev, seqs, coords, depth, false )
    end
 
-   function RNADuplexArray( left::Bio.Seq.Sequence, right::Bio.Seq.Sequence, depth::Int;
+   function RNADuplexArray( left::BioSequences.Sequence, right::BioSequences.Sequence, depth::Int;
                             left_seqname::String="chr", right_seqname::String="chr",
                             left_genomepos::Int=1, right_genomepos::Int=1,
                             left_strand::Bool=true, right_strand::Bool=true )
       fwd    = RNASuffixArray{A,I,K}( left,  depth, convert(K, 1) )
       rev    = RNASuffixArray{A,I,K}( reverse(right), depth, convert(K, 2) )
-      seqs   = Bio.Seq.Sequence[left, right]
+      seqs   = BioSequences.Sequence[left, right]
 
       coords = RNAGenomeCoord[RNAGenomeCoord(left_seqname, left_genomepos, left_strand, length(left)),
                               RNAGenomeCoord(right_seqname, right_genomepos, right_strand, length(right))]
       return new( fwd, rev, seqs, coords, depth, false )
    end
 
-   function RNADuplexArray( seqs::Vector{Bio.Seq.Sequence}, depth::Int;
+   function RNADuplexArray( seqs::Vector{BioSequences.Sequence}, depth::Int;
                             seqnames::Vector{String}=String["chr" for i in 1:length(seqs)],
                             genomepos::Vector{Int}=ones(Int, length(seqs)),
                             strands::Vector{Bool}=trues(length(seqs)))
@@ -228,13 +231,13 @@ type RNADuplexArray{A,I,K}
       fwd    = RNASuffixArray{A,I,K}( maf, tree, depth )
       reverse!( maf )
       rev    = RNASuffixArray{A,I,K}( maf, tree, depth )
-      seqs   = Bio.Seq.Sequence[refmaf.sequence]
+      seqs   = BioSequences.Sequence[refmaf.sequence]
       coords = RNAGenomeCoord[RNAGenomeCoord(refmaf.chr, refmaf.position, refmaf.strand, length(refmaf.sequence))]
       return new( fwd, rev, seqs, coords, depth, true )
    end
 end
 
-function Base.push!{A,I,K}( rda::RNADuplexArray{A,I,K}, seq::Bio.Seq.Sequence;
+function Base.push!{A,I,K}( rda::RNADuplexArray{A,I,K}, seq::BioSequences.Sequence;
                             seqname::String="chr", genomepos::Int=1, strand::Bool=true )
    rda.isphylo && error("Cannot push single sequence to RNADuplexArray with isphylo=true!")
    push!( rda.fwd, seq )
@@ -254,7 +257,7 @@ end
 
 tochar( strand::Bool ) = strand ? '+' : '-'
 
-function positions{N <: Bio.Seq.Nucleotide}( nucs::Vector{N}, lo::Int, hi::Int, alpha::Tuple{Vararg{N}} )
+function positions{N <: NucleicAcid}( nucs::Vector{N}, lo::Int, hi::Int, alpha::Tuple{Vararg{N}} )
    map( x->searchsorted(nucs, x, lo, hi, Base.Order.ForwardOrdering()), alpha ) 
 end
 
@@ -341,7 +344,8 @@ function traverse{A,I,K}( dsa::RNADuplexArray{A,I,K}, foldrange::UnitRange=3:typ
       end
 
       # recurse through bulges
-      if bulge_n < bulge_max && (bulge_n >= 1 ? from_bulge : !from_bulge) &&
+      if bulge_n < bulge_max && 
+         (bulge_n >= 1 ? from_bulge : !from_bulge) &&
          fdepth > 1 && rdepth > 1 && duplex.energy[end] < energy_max
          for (l,r) in bulges_idx
             if l == 0

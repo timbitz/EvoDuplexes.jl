@@ -8,7 +8,7 @@ type PhyloNode
     prob::Array{Float64,2}
 end
 
-const EMPTY_NODE = PhyloNode("", Nullable{PhyloNode}(), Nullable{PhyloNode}(), 0.0, Array{Float64,2}())
+const EMPTY_NODE = PhyloNode("", Nullable{PhyloNode}(), Nullable{PhyloNode}(), 0.0, Array{Float64}(0,0))
 
 immutable PhyloTree
    root::PhyloNode
@@ -30,7 +30,7 @@ function parsenewick(newick::String)
     PhyloTree(root, order, index)
 end
 
-parsenewick(newick::Symbol) = PhyloNode(string(newick), Nullable{PhyloNode}(), Nullable{PhyloNode}(), -1, Array{Float64,2}())
+parsenewick(newick::Symbol) = PhyloNode(string(newick), Nullable{PhyloNode}(), Nullable{PhyloNode}(), -1, Array{Float64}(0,0))
 
 function parsenewick(newick::Expr)
     if newick.head == :tuple
@@ -71,7 +71,7 @@ function parsenewick(newick::Expr)
             length = -1
         end
     end
-    PhyloNode(name,left,right,length, Array{Float64,2}())
+    PhyloNode(name,left,right,length, Array{Float64}(0,0))
 end
 
 # Tree collection
@@ -129,9 +129,9 @@ end
 # to calculate the L(D|T) = L(k) = Sigma_x(pi(x)*L(x))
 # from the tree topology, branch lengths, instantaneous matrix (Q),
 # and the data at site i
-function likelihood( tree::PhyloTree, single::Vector{Bio.Seq.Nucleotide}; 
+function likelihood( tree::PhyloTree, single::Vector{DNA}; 
                      background=GTR_SINGLE_PI, gapdenom::Float64=1.0 )
-   function _likelihood( node::PhyloNode, single::Vector{Bio.Seq.Nucleotide}, branchlength::Bool )
+   function _likelihood( node::PhyloNode, single::Vector{DNA}, branchlength::Bool )
       if !isnull(node.left) && !isnull(node.right)
           if branchlength
              const left_res  = node.prob * _likelihood( node.left.value,  single, true )
@@ -153,15 +153,15 @@ function likelihood( tree::PhyloTree, single::Vector{Bio.Seq.Nucleotide};
    sum(_likelihood( tree.root, single, false ) .* background)
 end
 
-function likelihood( tree::PhyloTree, first::Vector{Bio.Seq.Nucleotide}, last::Vector{Bio.Seq.Nucleotide};
+function likelihood( tree::PhyloTree, first::Vector{DNA}, last::Vector{DNA};
                      background=GTR_PAIRED_PI )
-   index( l::Bio.Seq.Nucleotide, r::Bio.Seq.Nucleotide ) = index( reinterpret(UInt8, l), reinterpret(UInt8, r) )
+   index( l::DNA, r::DNA ) = index( reinterpret(UInt8, l), reinterpret(UInt8, r) )
    function index( l::UInt8, r::UInt8 )
       const lidx = trailing_zeros(l) << 2
       const ridx = trailing_zeros(r)
       (lidx | ridx) + 1
    end
-   function _likelihood( node::PhyloNode, first::Vector{Bio.Seq.Nucleotide}, last::Vector{Bio.Seq.Nucleotide}, branchlength::Bool )
+   function _likelihood( node::PhyloNode, first::Vector{DNA}, last::Vector{DNA}, branchlength::Bool )
       if !isnull(node.left) && !isnull(node.right)
           if branchlength
              const left_res  = node.prob * _likelihood( node.left.value,  first, last, true )

@@ -1,4 +1,92 @@
-# Code based on Automa.jl multi-line 'FASTA' example:
+# define MAF types.
+
+# Each MAFRecord is made up of MAFSpecies entries.
+type MAFSpecies
+    name::String
+    chr::String
+    position::Int
+    strand::Bool
+    sequence::BioSequence{DNAAlphabet{4}}
+end
+
+Base.:(==)( a::MAFSpecies, b::MAFSpecies ) = a.name == b.name && a.position == b.position &&
+                                             a.strand == b.strand && a.sequence == b.sequence ? true : false
+
+immutable MAFRecord
+   species::Vector{MAFSpecies}
+
+   MAFRecord() = new(Vector{MAFSpecies}())
+end
+
+Base.endof( maf::MAFRecord ) = endof(maf.species)
+Base.getindex( maf::MAFRecord, ind ) = maf.species[ind]
+
+function Base.reverse!( maf::MAFRecord )
+   for s in maf.species
+      reverse!( s.sequence )
+   end
+end
+
+function BioSequences.reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
+   for s in mblock.species
+      BioSequences.reverse_complement!( s.sequence )
+      if strandflip
+         s.strand = s.strand ? false : true
+      end
+   end
+end
+
+Base.length( maf::MAFRecord ) = length(maf.species)
+
+
+function deletegaps!( mblock::MAFRecord )
+   str = convert(String, mblock.species[1].sequence)
+   ind = search(str, r"-+")
+   if length(ind) > 0
+      for i in mblock.species
+         deleteat!( i.sequence, ind )
+      end
+      deletegaps!( mblock )
+      return
+   else
+      return
+   end
+end
+
+function stitch!( a::MAFRecord, b::MAFRecord, index::Dict{String,Int} )
+   const aref = a.species[1]
+   const bref = b.species[1]
+   const aref_len = length(aref.sequence)
+   const bref_len = length(bref.sequence)
+   sort!( a.species, by=x->index[x.name] )
+   sort!( b.species, by=x->index[x.name] )
+   aref.name != bref.name && error("Invalid stitching of alignment blocks with two different references $(aref.name) & $(bref.name)!!")
+   if aref.position+length(aref.sequence) == bref.position
+       i,j = 1,1
+       while (i <= length(a.species) || j <= length(b.species))
+          if (i <= length(a.species) && j <= length(b.species)) &&
+              a.species[i].name == b.species[j].name
+             a.species[i].sequence *= b.species[j].sequence
+             i += 1
+             j += 1
+          elseif j > length(b.species) || (i <= length(a.species) && index[a.species[i].name] < index[b.species[j].name])
+             a.species[i].sequence *= dna"-" ^ bref_len
+             i += 1
+          else
+             b.species[j].sequence = (dna"-" ^ aref_len) * b.species[j].sequence
+             insert!( a.species, i,  b.species[j] )
+             i += 1
+             j += 1
+          end
+       end
+       return true
+   else
+      return false
+   end
+end
+
+
+# Code modified and expanded from Automa.jl multi-line 'FASTA' example:
 # https://github.com/BioJulia/Automa.jl/blob/master/example/fasta.jl 
 
 const re = Automa.RegExp
@@ -117,7 +205,8 @@ maf_actions_stream = Dict(
                       const pos    = parse(Int, position)
                       org,chr = parsename( organism, reader.keepname )
                       if (len < reader.minlen || pscore < reader.minscore) ||
-                         (regionbool && !IntervalTrees.hasintersection( regions.trees[chr], pos ) )
+                         (regionbool && !hasintersection( regions, Interval(chr, pos, pos+len-1) )) ||
+                         (secbool    && !hasintersection( secregions, Interval(chr, pos, pos+len-1) ))
                          bad_record = true
                       end
                    end
@@ -137,58 +226,7 @@ maf_actions_stream = Dict(
             :anchor      => :(stream.anchor = p), #; println("Anchoring at $p")),
             :escape      => :(found_record=true; @escape))
 
-# Define a type to store a FASTA record.
-type MAFSpecies
-    name::String
-    chr::String
-    position::Int
-    strand::Bool
-    sequence::BioSequence{DNAAlphabet{4}}
-end
 
-Base.:(==)( a::MAFSpecies, b::MAFSpecies ) = a.name == b.name && a.position == b.position && 
-                                             a.strand == b.strand && a.sequence == b.sequence ? true : false
-
-type MAFRecord
-   species::Vector{MAFSpecies}
-
-   MAFRecord() = new(Vector{MAFSpecies}())
-end
-
-Base.endof( maf::MAFRecord ) = endof(maf.species)
-Base.getindex( maf::MAFRecord, ind ) = maf.species[ind]
-
-function Base.reverse!( maf::MAFRecord )
-   for s in maf.species
-      reverse!( s.sequence )
-   end
-end
-
-function Bio.Seq.reverse_complement!( mblock::MAFRecord, strandflip::Bool=true )
-   for s in mblock.species
-      Bio.Seq.reverse_complement!( s.sequence )
-      if strandflip
-         s.strand = s.strand ? false : true
-      end
-   end
-end
-
-Base.length( maf::MAFRecord ) = length(maf.species)
-
-
-function deletegaps!( mblock::MAFRecord )
-   str = convert(String, mblock.species[1].sequence)
-   ind = search(str, r"-+")
-   if length(ind) > 0
-      for i in mblock.species
-         deleteat!( i.sequence, ind )
-      end
-      deletegaps!( mblock )
-      return
-   else
-      return
-   end
-end
 
 type MAFReader{T<:BufferedInputStream}
     stream::T
@@ -242,7 +280,11 @@ end
 
 const EMPTY_INTCOL = IntervalCollection{Void}()
 
-@eval function Base.read!(reader::MAFReader, record::MAFRecord; regionbool::Bool=false, regions::IntervalCollection=EMPTY_INTCOL)
+const context = Automa.CodeGenContext(generator=:goto, checkbounds=false)
+
+@eval function Base.read!(reader::MAFReader, record::MAFRecord; 
+                          regionbool::Bool=false, regions::IntervalCollection=EMPTY_INTCOL,
+                          secbool::Bool=false,    secregions::IntervalCollection=EMPTY_INTCOL)
     cs      = reader.cs
     stream  = reader.stream
     data    = stream.buffer
@@ -270,9 +312,8 @@ const EMPTY_INTCOL = IntervalCollection{Void}()
     while true
 
         p = p < 1 ? stream.anchor : p
-        #error("p:$p p_end:$p_end p_eof:$p_eof cs:$cs anchor:$(stream.anchor) avail:$(stream.available) \"$(map(Char, data[1:10]))\"")
 
-        $(Automa.generate_exec_code(record_machine, actions=maf_actions_stream, code=:goto, check=false))
+        $(Automa.generate_exec_code(context, record_machine, maf_actions_stream))
 
         reader.cs              = cs
         reader.p_eof           = p_eof
@@ -288,7 +329,6 @@ const EMPTY_INTCOL = IntervalCollection{Void}()
            empty!(record.species)
            continue
         elseif (p == p_eof+1 && data[p_eof] == 10)
-           #println("p==p_eof+1 p:$p p_eof:$p_eof cs:$cs \"$(Char(data[p-1]))\" $record")
            if !bad_record && organism != ""
               org,chr = parsename( organism, reader.keepname )
               spec = MAFSpecies(org, chr, parse(Int, position), strand, DNASequence(sequence))
@@ -297,10 +337,8 @@ const EMPTY_INTCOL = IntervalCollection{Void}()
            reader.cs = 0
            return record
         elseif p > p_eof ≥ 0
-         #  println("p:$p p_eof:$p_eof cs:$cs \"$(Char(data[p-1]))\" $record")
            error("incomplete MAF input on line ", linenum)
         elseif p == p_end+1
-            #println(STDERR, "Rebuffer p=p_end+1 p:$p p_eof:$p_eof p_end:$p_end cs:$cs")
             hits_eof = BufferedStreams.fillbuffer!(reader.stream) == 0
             if hits_eof
                reader.p_eof = p_eof = p_end
@@ -308,7 +346,6 @@ const EMPTY_INTCOL = IntervalCollection{Void}()
                p     = stream.position
                p_end = stream.available
             end
-            #println("Rebuffering to $(map(Char, data[p:p+10])) at cs $mark_cs")
             cs = record_machine.start_state
         elseif cs < 0
            if !retry && p <= 4
@@ -328,59 +365,26 @@ const EMPTY_INTCOL = IntervalCollection{Void}()
 end
 
 
-function stitch!( a::MAFRecord, b::MAFRecord, index::Dict{String,Int} )
-   const aref = a.species[1]
-   const bref = b.species[1]
-   const aref_len = length(aref.sequence)
-   const bref_len = length(bref.sequence)
-   sort!( a.species, by=x->index[x.name] )
-   sort!( b.species, by=x->index[x.name] )
-   aref.name != bref.name && error("Invalid stitching of alignment blocks with two different references $(aref.name) & $(bref.name)!!")
-   if aref.position+length(aref.sequence) == bref.position
-       i,j = 1,1
-       #println(" $( map(x->a.species[x].name, 1:length(a)) ) && \n $( map(x->b.species[x].name, 1:length(b)) )")
-       while (i <= length(a.species) || j <= length(b.species))
-          #println("$( a.species[i].name ) vs. $( b.species[j].name ) for $i and $j")
-          if (i <= length(a.species) && j <= length(b.species)) &&
-              a.species[i].name == b.species[j].name
-             a.species[i].sequence *= b.species[j].sequence
-             i += 1
-             j += 1
-          elseif j > length(b.species) || (i <= length(a.species) && index[a.species[i].name] < index[b.species[j].name])
-             a.species[i].sequence *= dna"-" ^ bref_len
-             i += 1
-          else
-             b.species[j].sequence = (dna"-" ^ aref_len) * b.species[j].sequence
-             insert!( a.species, i,  b.species[j] )
-             i += 1
-             j += 1
-          end
-       end
-       return true
-   else
-      return false
-   end
-end
-
 const MAFInterval = Interval{MAFRecord}
 const MAFCollection = IntervalCollection{MAFRecord}
 
-const EMPTYCOL = IntervalCollection{Void}()
-
-function readmaf!( reader::MAFReader, order::Dict{String,Int}; minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf, regionbool=false, regions=EMPTYCOL )
+function readmaf!( reader::MAFReader, order::Dict{String,Int}; 
+                   minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf, 
+                   regionbool=false, regions=EMPTY_INTCOL,
+                   secbool=false, secregions=EMPTY_INTCOL)
    maf = MAFCollection()
-   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore, regionbool=regionbool, regions=regions )
+   readmaf!( maf, reader, order, minspecies=minspecies, minlength=minlength, minscore=minscore, 
+             regionbool=regionbool, regions=regions, secbool=secbool, secregions=secregions )
 end
 
 function readmaf!( maf::MAFCollection, reader::MAFReader, order::Dict{String,Int}; 
                    minspecies::Int=1, minlength::Int=1, minscore::Float64=-Inf,
-                   regionbool=false, regions=EMPTYCOL )
-   #reader.minlen   = minlength
-   #reader.minscore = minscore
+                   regionbool=false, regions=EMPTY_INTCOL,
+                   secbool=false, secregions=EMPTY_INTCOL)
    prev = MAFRecord()
    while !done( reader )
       rec = MAFRecord()
-      read!( reader, rec, regionbool=regionbool, regions=regions )
+      read!( reader, rec, regionbool=regionbool, regions=regions, secbool=secbool, secregions=secregions )
       if length(rec.species) >= minspecies
          try
             deletegaps!(rec)
