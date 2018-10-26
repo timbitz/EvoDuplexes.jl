@@ -61,6 +61,7 @@ function predict( df::DistanceForest, array::Array{Float64,2} )
    outliers
 end
 
+#function distances( b::Int=100, range::UnitRange=1:1 ) 
 function distances( b::Int=2, range::UnitRange=2:12 )
    first = [(b^i, b^(i+1)) for i in range]
    last  = [(b^i+b^(i-1), b^(i+1)+b^i) for i in range]

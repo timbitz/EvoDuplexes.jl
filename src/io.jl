@@ -48,6 +48,11 @@ function weighted_rgb( dg::Float64, maxenergy::Float64 )
    join(rgba_to_int(col), ",")
 end
 
+function randcode( arr=[collect('0':'9'); collect('A':'Z')], len=7 )
+   shuffle!(arr)
+   join(arr[1:len])
+end
+
 function writebed{T}( io, dup::DuplexInterval{T}, name::String; maxdistance::Int=100_000, maxenergy::Float64=-35.0 )
    const dist = dup.last.first - dup.first.last
    if dup.first.seqname == dup.last.seqname &&
@@ -55,7 +60,7 @@ function writebed{T}( io, dup::DuplexInterval{T}, name::String; maxdistance::Int
       tab_write( io, string(dup.first.seqname) )
       tab_write( io, string(dup.first.first-1) )
       tab_write( io, string(dup.last.last) )
-      tab_write( io, "EvoDuplexes.jl:" * name )
+      tab_write( io, "EvoDuplexes: " * name )
       tab_write( io, string(min(1000, energy(dup.duplex) * -250)) )
       tab_write( io, dup.first.strand == STRAND_POS ? '+' : '-' )
       tab_write( io, string(dup.first.first-1) )
