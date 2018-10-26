@@ -97,6 +97,17 @@ function Base.show( io::IO, duplex::RNADuplex )
    end
 end
 
+function brackets( duplex::RNADuplex )
+   rnachar( idx ) = Char(convert(RNA, idx != 15 ? UInt8(0x01 << (idx - 1)) : UInt8(0)))
+   seq = Vector{Char}()
+   str = Vector{Char}()
+   for i in duplex.path
+      
+      if isa( i , RNAPair )
+         unshift!( seq, 
+   end
+end
+
 npairs( dup::RNADuplex )      = npairs( dup.path )
 nmismatches( dup::RNADuplex ) = nmismatches( dup.path )
 nbulges( dup::RNADuplex )     = nbulges( dup.path )

@@ -46,11 +46,11 @@ function parse_cmd()
        arg_type = String
        required = false
       "--model-data"
-       help     = "Load training data from `.jlt` file, output .evt.jls file"
+       help     = "Load training data from `.jlt` file, output `.evt.jls` file"
        arg_type = String
        required = false
       "--model-train"
-       help     = "Train the IsolationForest models from scratch using input regions, output .evt.jls file"
+       help     = "Train the IsolationForest models from scratch using input regions, output `.evt.jls` file"
        action   = :store_true
       "--output","-o"
        help     = "Output prefix"
@@ -64,6 +64,13 @@ function parse_cmd()
        help     = "Output the top fraction of outliers"
        arg_type = Float64
        default  = 0.05
+      "--output-all"
+       help     = "Output all folds regardless of prediction status"
+       action   = :store_true
+      "--max-distance"
+       help     = "Set a limit on the maximum distance between a left/right arm of a duplex"
+       arg_type = Int64
+       default  = 2000
     end
    return parse_args(s)
 end
@@ -95,7 +102,7 @@ function main()
       regs  = loadbed( args["cons-regions"], expandfirst=25, expandlast=25 )
       conserved = true
       if istrue( args["gene-regions"] )
-         genes   = loadbed( args["gene-regions"], expandfirst=2500, expandlast=2500 )
+         genes   = loadbed( args["gene-regions"] )#, expandfirst=2500, expandlast=2500 )
          secbool = true
       else
          error("No specific `--gene-regions` given! Can't fold entire chromosomes..")
@@ -129,7 +136,9 @@ function main()
    for chr in keys(genes.trees)
       println("Reading $(args["maf"])/$chr.maf.gz")
       reader = ZlibInflateInputStream(open("$(args["maf"])/$chr.maf.gz"), bufsize=129000) |> MAFReader
-      @time maf = readmaf!( reader, neutraltree.index, minlength=30, minspecies=2, minscore=-Inf, regionbool=true, regions=genes, secbool=secbool, secregions=regs )
+      @time maf = readmaf!( reader, neutraltree.index, minlength=18, minspecies=2, minscore=-Inf, regionbool=true, regions=genes, secbool=secbool, secregions=regs )
+
+      println(maf)
 
       for r in collect(genes)
          haskey( maf.trees, r.seqname ) || continue
@@ -146,7 +155,7 @@ function main()
             push!( rda, col[i].metadata, neutraltree )
          end
 
-         @time trav = collect(traverse( rda, 1:5000, single=neutraltree, bulge_max=3, mismatch_max=3, minfold=-8.0 ))
+         @time trav = collect(traverse( rda, 1:args["max-distance"], single=neutraltree, bulge_max=3, mismatch_max=3, minfold=-8.0 ))
 
          println("Calculating structural conservation across the phylogeny...")
          for i in trav
@@ -176,7 +185,9 @@ function main()
 
       end
    end
-    
+
+   full_char = [collect('0':'9'); collect('A':'Z')]
+
    close(datout)
    tabdata = open(readdlm, "$(args["output"])-raw.jlt")
 
@@ -187,12 +198,18 @@ function main()
    end
 
    println("Identifying statistical anomalies...")
-   sig = EvoDuplexes.predict( model, tabdata )
+   if !args["output-all"]
+      sig = EvoDuplexes.predict( model, tabdata[:,1:3] )
+   else
+      sig = collect(1:length(duplexes))
+   end
 
    println("Found $(length(sig)) significant duplexes..")
 
    for i in sig
-      writebed( bedout, duplexes[i], "EvoDuplex" )
+      name = randcode(full_char)
+      writebed( bedout, duplexes[i], name )
+      
    end
 
    close(bedout)
