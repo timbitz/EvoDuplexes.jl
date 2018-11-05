@@ -99,13 +99,32 @@ end
 
 function brackets( duplex::RNADuplex )
    rnachar( idx ) = Char(convert(RNA, idx != 15 ? UInt8(0x01 << (idx - 1)) : UInt8(0)))
-   seq = Vector{Char}()
-   str = Vector{Char}()
-   for i in duplex.path
-      
-      if isa( i , RNAPair )
-         unshift!( seq, 
+   seq = Char[' ', '&', ' ']
+   str = Char[' ', '&', ' ']
+   for i in reverse(duplex.path)
+      if !isa( i , RNABulge )
+         l,r = rnachar(split( i )[1]), rnachar(split( i )[2])
+         unshift!( seq, l )
+         push!( seq, r )
+         if isa( i, RNAPair )
+            unshift!( str, '(' )
+            push!( str, ')' )
+         else
+            unshift!( str, ' ' )
+            push!( str, ' ' )
+         end
+      else  
+         k = rnachar(split( i ))
+         if isfiveprime(i)
+            unshift!( seq, k )
+            unshift!( str, ' ' )
+         else
+            push!( seq, k )
+            push!( str, ' ' )
+         end
+      end
    end
+   join(seq),join(str)
 end
 
 npairs( dup::RNADuplex )      = npairs( dup.path )

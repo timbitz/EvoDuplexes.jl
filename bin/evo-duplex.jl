@@ -209,7 +209,9 @@ function main()
    for i in sig
       name = randcode(full_char)
       writebed( bedout, duplexes[i], name )
-      
+      s,b = brackets( duplexes[i].duplex )
+      println("$name: $b")
+      println("$name: $s")
    end
 
    close(bedout)

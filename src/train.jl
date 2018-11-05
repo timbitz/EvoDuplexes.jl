@@ -8,7 +8,7 @@ struct DistanceForest
 
    function DistanceForest( outratio::Float64=0.1, heuristic=[>, <, >, >, >] )
       inter, mids = distances()
-      forests = [IsolationForest(behaviour="new", contamination=outratio) for i in 1:length(mids)]
+      forests = [IsolationForest(contamination=outratio) for i in 1:length(mids)]
       new(forests, inter, mids, Vector{Vector{Float64}}(length(mids)), heuristic)
    end 
 end

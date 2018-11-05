@@ -63,6 +63,7 @@ nmismatches( evo::EvoDuplex ) = nmismatches( evo.duplex )
 nbulges( evo::EvoDuplex )     = nbulges( evo.duplex )
 
 strings( evo::EvoDuplex )     = strings( evo.duplex )
+brackets( evo::EvoDuplex )    = brackets( evo.duplex )
 
 Base.push!{NP <: NucleotidePair}( evo::EvoDuplex, pair::NP )         = push!( evo.duplex, pair )
 Base.push!{NP <: NucleotidePair}( evo::EvoDuplex, path::Vector{NP} ) = push!( evo.duplex, path )
