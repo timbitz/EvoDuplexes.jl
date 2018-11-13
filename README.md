@@ -5,7 +5,7 @@
 
 RNA suffix array traversal through MAF files to fold and score all local and long-range RNA duplexes.
 
-Docs coming soon (*Requires Julia v0.6.4*), examples of API usage for EvoDuplexes package in test/runtests.jl.
+Docs coming soon (**Requires Julia v0.6.4**), examples of API usage for EvoDuplexes package in test/runtests.jl.
 
 Executable can be run using `evo-duplex.jl` in /bin:
 ```bash
