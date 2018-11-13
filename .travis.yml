@@ -3,8 +3,5 @@ os:
   - osx
 julia:
   - 0.6
-script:
-  - julia -e 'Pkg.clone(pwd())'
-  - julia --check-bounds=yes -e 'Pkg.test("EvoDuplexes", coverage=true)'
 after_success:
   - julia -e 'Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
