@@ -1,6 +1,7 @@
 # EvoDuplexes.jl
 
 [![Build Status](https://travis-ci.com/timbitz/EvoDuplexes.jl.svg?token=R7mZheNGhsReQ7hn2gdf&branch=master)](https://travis-ci.com/timbitz/EvoDuplexes.jl)
+[![codecov](https://codecov.io/gh/timbitz/EvoDuplexes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/timbitz/EvoDuplexes.jl)
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
 RNA suffix array traversal through MAF files to fold and score all local and long-range RNA duplexes.
