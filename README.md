@@ -22,14 +22,14 @@ optional arguments:
   --tree TREE           Phylogenetic tree with neutral branch lengths
                         (in newick format)
   --cons-regions CONS-REGIONS
-                        BED file containing conserved regions
+                        BED file containing conserved regions in genome
   --gene-regions GENE-REGIONS
-                        BED file containing gene units to allow
+                        BED file containing gene intervals to allow
                         long-range folding within
   --maf MAF             Directory with MAF files named by chromosome
                         (chr1.maf.gz...) (default: "../maf")
   --model-load MODEL-LOAD
-                        Load pre-trained IsolationForest models,
+                        Load pre-trained EvoDuplexes IsolationForest models,
                         .evt.jls
   --model-data MODEL-DATA
                         Load training data from `.jlt` file, output
