@@ -4,4 +4,4 @@ os:
 julia:
   - 0.6
 after_success:
-  - julia -e 'Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+  - julia -e 'cd(Pkg.dir("EvoDuplexes")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
