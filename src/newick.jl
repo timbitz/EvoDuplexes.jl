@@ -125,7 +125,7 @@ function extend_branches!(node::PhyloNode, multiplier::Float64)
    node
 end
 
-# Implementation of Felsenstein's pruning algorithm
+# My implementation of Felsenstein's pruning algorithm
 # to calculate the L(D|T) = L(k) = Sigma_x(pi(x)*L(x))
 # from the tree topology, branch lengths, instantaneous matrix (Q),
 # and the data at site i
@@ -140,10 +140,8 @@ function likelihood( tree::PhyloTree, single::Vector{DNA};
              const left_res  = _likelihood( node.left.value,  single, true )
              const right_res = _likelihood( node.right.value, single, true )
           end
-          #println("LEFT: $left_res .* RIGHT $right_res")
           return left_res .* right_res
       else
-         #println("node: $(node.label)")
          const ind = tree.index[node.label]
          const v = isgap( single[ind] ) ? (return ones(4) / gapdenom) : zeros(4)
          v[ trailing_zeros(reinterpret(UInt8, single[ind])) + 1 ] = 1.0
