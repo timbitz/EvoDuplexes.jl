@@ -1,3 +1,7 @@
+##################
+### DEPRECATED ###
+##################
+
 abstract AbstractTrieNode
 
 immutable NullTrieNode <: AbstractTrieNode
