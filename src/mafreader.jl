@@ -12,7 +12,7 @@ end
 Base.:(==)( a::MAFSpecies, b::MAFSpecies ) = a.name == b.name && a.position == b.position &&
                                              a.strand == b.strand && a.sequence == b.sequence ? true : false
 
-immutable MAFRecord
+struct MAFRecord
    species::Vector{MAFSpecies}
 
    MAFRecord() = new(Vector{MAFSpecies}())
@@ -228,7 +228,7 @@ maf_actions_stream = Dict(
 
 
 
-type MAFReader{T<:BufferedInputStream}
+mutable struct MAFReader{T<:BufferedInputStream}
     stream::T
     cs::Int
     p_eof::Int
