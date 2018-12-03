@@ -1,7 +1,7 @@
 # define MAF types.
 
 # Each MAFRecord is made up of MAFSpecies entries.
-type MAFSpecies
+mutable struct MAFSpecies
     name::String
     chr::String
     position::Int
