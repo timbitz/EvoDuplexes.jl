@@ -1,6 +1,6 @@
 
 # Format forced into left/right children, and additional markov probability matrix functionality added.
-type PhyloNode
+mutable struct PhyloNode
     label::String
     left::Nullable{PhyloNode}
     right::Nullable{PhyloNode}
@@ -10,7 +10,7 @@ end
 
 const EMPTY_NODE = PhyloNode("", Nullable{PhyloNode}(), Nullable{PhyloNode}(), 0.0, Array{Float64}(0,0))
 
-immutable PhyloTree
+struct PhyloTree
    root::PhyloNode
    order::Vector{String}
    index::Dict{String,Int}
