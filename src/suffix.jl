@@ -1,7 +1,7 @@
 
 const SuffixVector = Vector{Vector{DNA}}
 
-type RNASuffixArray{A<:BioSequences.Alphabet,I<:Integer,K<:Integer}
+mutable struct RNASuffixArray{A<:BioSequences.Alphabet,I<:Integer,K<:Integer}
    sai::Vector{I}
    meta::Vector{K}
    depth::SuffixVector
@@ -173,14 +173,14 @@ function Base.push!{A,I,K}( suf::RNASuffixArray{A,I,K}, maf::MAFRecord, tree::Ph
    suf
 end
 
-immutable RNAGenomeCoord
+struct RNAGenomeCoord
    name::String
    offset::Int
    strand::Bool
    length::Int
 end
 
-type RNADuplexArray{A,I,K}
+mutable struct RNADuplexArray{A,I,K}
    fwd::RNASuffixArray{A,I,K}
    rev::RNASuffixArray{A,I,K}
    seqs::Vector{BioSequences.Sequence}
