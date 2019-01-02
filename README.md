@@ -4,9 +4,9 @@
 [![codecov](https://codecov.io/gh/timbitz/EvoDuplexes.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/timbitz/EvoDuplexes.jl)
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
 
-RNA suffix array traversal through chromosomal multiple alignment files (MAF format) to fold and score all local and long-range RNA duplexes.
+RNA suffix array traversal through chromosomal multiple alignment files (MAF format) to fold and score all local and long-range RNA duplexes while allowing bulges and mismatches.
 
-Docs coming soon (**Requires Julia v0.6.4**), examples of API usage for EvoDuplexes package in test/runtests.jl.
+Full documentation is coming soon (**Requires Julia v0.6.4**), however comperehensive examples of API usage for EvoDuplexes package can be found in `test/runtests.jl`.
 
 Executable can be run using `evo-duplex.jl` in /bin:
 ```bash
