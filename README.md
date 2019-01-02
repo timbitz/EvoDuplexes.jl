@@ -17,20 +17,24 @@ usage: evo-duplex.jl --tree TREE [--cons-regions CONS-REGIONS]
                      [--model-data MODEL-DATA] [--model-train]
                      [-o OUTPUT] [--cons-branch CONS-BRANCH]
                      [--sig-ratio SIG-RATIO] [--output-all]
-                     [--max-distance MAX-DISTANCE] [-h]
+                     [--max-distance MAX-DISTANCE]
+                     [--max-duplex-length MAX-DUPLEX-LENGTH]
+                     [--max-bulges MAX-BULGES]
+                     [--max-mismatches MAX-MISMATCHES]
+                     [--max-deltag MAX-DELTAG] [-h]
 
 optional arguments:
   --tree TREE           Phylogenetic tree with neutral branch lengths
                         (in newick format)
   --cons-regions CONS-REGIONS
-                        BED file containing conserved regions in genome
+                        BED file containing conserved regions
   --gene-regions GENE-REGIONS
-                        BED file containing gene intervals to allow
+                        BED file containing gene units to allow
                         long-range folding within
   --maf MAF             Directory with MAF files named by chromosome
                         (chr1.maf.gz...) (default: "../maf")
   --model-load MODEL-LOAD
-                        Load pre-trained EvoDuplexes IsolationForest models,
+                        Load pre-trained IsolationForest models,
                         .evt.jls
   --model-data MODEL-DATA
                         Load training data from `.jlt` file, output
@@ -51,5 +55,18 @@ optional arguments:
                         Set a limit on the maximum distance between a
                         left/right arm of a duplex (type: Int64,
                         default: 2000)
+  --max-duplex-length MAX-DUPLEX-LENGTH
+                        Set the maximum duplex length that will be
+                        accessible from the suffix array (type: Int64,
+                        default: 50)
+  --max-bulges MAX-BULGES
+                        Set the maximum number of bulges to allow for
+                        a duplex (type: Int64, default: 3)
+  --max-mismatches MAX-MISMATCHES
+                        Set the maximum number of mismatches to allow
+                        for a duplex (type: Int64, default: 3)
+  --max-deltag MAX-DELTAG
+                        Set the maximum allowable deltaG value (type:
+                        Float64, default: -0.8)
   -h, --help            show this help message and exit
 ```
