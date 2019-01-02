@@ -71,6 +71,22 @@ function parse_cmd()
        help     = "Set a limit on the maximum distance between a left/right arm of a duplex"
        arg_type = Int64
        default  = 2000
+      "--max-duplex-length"
+       help     = "Set the maximum duplex length that will be accessible from the suffix array"
+       arg_type = Int64
+       default  = 50
+      "--max-bulges"
+       help     = "Set the maximum number of bulges to allow for a duplex"
+       arg_type = Int64
+       default  = 3
+      "--max-mismatches"
+       help     = "Set the maximum number of mismatches to allow for a duplex"
+       arg_type = Int64
+       default  = 3
+      "--max-deltag"
+       help     = "Set the maximum allowable deltaG value"
+       arg_type = Float64
+       default  = -0.8
     end
    return parse_args(s)
 end
@@ -150,12 +166,16 @@ function main()
             end
          end
          println("Building DuplexArray for $(r.metadata)")
-         rda = RNADuplexArray{DNAAlphabet{2},UInt16,UInt16}( col[1].metadata, neutraltree, 50 )
+         rda = RNADuplexArray{DNAAlphabet{2},UInt16,UInt16}( col[1].metadata, neutraltree, args["max-duplex-length"] )
          for i in 2:length(col)
             push!( rda, col[i].metadata, neutraltree )
          end
 
-         @time trav = collect(traverse( rda, 1:args["max-distance"], single=neutraltree, bulge_max=3, mismatch_max=3, minfold=-8.0 ))
+         @time trav = collect(traverse( rda, 1:args["max-distance"], 
+                                         single=neutraltree, 
+                                         bulge_max=args["max-bulges"], 
+                                         mismatch_max=args["max-mismatches"], 
+                                         minfold=args["max-deltag"] ))
 
          println("Calculating structural conservation across the phylogeny...")
          for i in trav
