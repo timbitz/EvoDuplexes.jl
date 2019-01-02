@@ -234,6 +234,11 @@ function main()
       println("$name: $s")
    end
 
+   modelhndl = open( args["output"], "w" )
+   println("Serializing model to $( args["output"] ).evt.jls")
+   serialize(modelhndl, model)
+   close(modelhndl)
+   
    close(bedout)
 end
 
