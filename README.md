@@ -6,7 +6,7 @@
 
 RNA suffix array traversal through chromosomal multiple alignment files (MAF format) to fold and score (with both free-energy models and phylogenetic likelihood) all local and long-range RNA duplexes while allowing bulges and mismatches.
 
-Full documentation is coming soon (**Requires Julia v0.6.4**), however comperehensive examples of API usage for EvoDuplexes package can be found in `test/runtests.jl`.
+Full documentation is coming soon (**Requires Julia v0.6.4**), however comprehensive examples of API usage for EvoDuplexes package can be found in `test/runtests.jl`.
 
 Executable can be run using `evo-duplex.jl` in /bin:
 ```bash
