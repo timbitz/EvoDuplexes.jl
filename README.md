@@ -67,6 +67,6 @@ optional arguments:
                         for a duplex (type: Int64, default: 3)
   --max-deltag MAX-DELTAG
                         Set the maximum allowable deltaG value (type:
-                        Float64, default: -0.8)
+                        Float64, default: -8.0)
   -h, --help            show this help message and exit
 ```
