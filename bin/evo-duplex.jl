@@ -219,7 +219,7 @@ function main()
 
    println("Identifying statistical anomalies...")
    if !args["output-all"]
-      sig = EvoDuplexes.predict( model, tabdata[:,1:3] )
+      sig = EvoDuplexes.predict( model, tabdata )
    else
       sig = collect(1:length(duplexes))
    end
